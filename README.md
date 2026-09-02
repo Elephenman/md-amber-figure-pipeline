@@ -15,7 +15,7 @@
 | 构象 | fig13-14 | Ramachandran + DSSP 二级结构 |
 | 界面 | fig15-17 | 接触数时程 + 接触热图 + 氢键占用率 Top 15 |
 | 局部 | fig18-20 | 催化口袋 RMSD + DNA 首尾距 + RMSF 局部放大 |
-| 机制 | fig21-22 | MM-PBSA 逐核苷酸 + 6 条关键界面氢键距离时序 |
+| 机制 | fig21-22 | MM-PBSA 逐核苷酸 + 界面 H 键 2D 谱 (occupancy×距离×角度) |
 
 完整图集见 `examples/fig01..fig22.png`。
 

@@ -321,6 +321,8 @@ with open(os.path.join(RAW, "hb_all_avg.dat"), encoding="utf-8", errors="ignore"
         rows.append((float(f[4]), f[3], ra, rd, acc, don, f[5], f[6]))
 rows.sort(reverse=True)
 print(f"   {len(rows)} interfacial H-bonds; top: {rows[:3]}")
+n_dna_donor = sum(1 for r in rows if r[3] > 254)
+print(f"   DNA-donor count among all interface H-bonds: {n_dna_donor} / {len(rows)}")
 top = rows[:15][::-1]
 fig = plt.figure(figsize=(10.2, 5.6))
 ax = fig.add_subplot(111)
@@ -331,17 +333,28 @@ for fr, nfr, ra, rd, acc, don, d, an in top:
     nd = "DNA" if rd > 254 else don.split("_")[0]
     names.append(f"{don.split('_')[0]}{rd - 254 if rd > 254 else rd}·{acc.split('_')[0]}{ra - 254 if ra > 254 else ra}")
     fracs.append(fr * 100)
-cols = [C_DNA if (ra > 254) else C_PROT for _, _, ra, *_ in top]
-bars = ax.barh(np.arange(len(top)), fracs, color=cols, alpha=0.9, height=0.62)
+# occupancy 渐变着色: 0-100% → C_PROT 浅→深
+import matplotlib as mpl2
+cmap = mpl2.colors.LinearSegmentedColormap.from_list("occ_blue",
+    ["#DCE6F2", C_PROT])
+norm = mpl2.colors.Normalize(vmin=0, vmax=100)
+cols = [cmap(norm(fr)) for fr in fracs]
+bars = ax.barh(np.arange(len(top)), fracs, color=cols, alpha=0.95, height=0.62, ec="white", lw=0.4)
 ax.set_yticks(np.arange(len(top)))
 ax.set_yticklabels(names, fontsize=8.6)
 ax.invert_yaxis()
-ax.set_xlabel("Occupancy (%)", fontsize=12.5)
+ax.set_xlabel("Occupancy (%, 150 ns)", fontsize=12.5)
 style_ax(ax, gridy=False)
 for i, (fr, y) in enumerate(zip(fracs, np.arange(len(top)))):
     ax.text(fr + 1.2, y, f"{fr:.0f}%", va="center", fontsize=8.6, color="#3C4852")
 ax.set_xlim(0, 108)
-ax.set_title("蛋白–DNA 界面氢键占有率 Top 15（橙=DNA 供体，蓝=蛋白供体）", fontsize=13)
+ax.set_title("界面氢键占用率 Top 15（蛋白供体→DNA 受体；色深=occupancy 高）", fontsize=13)
+# colorbar 表示 occupancy 渐变
+sm = mpl2.cm.ScalarMappable(cmap=cmap, norm=norm)
+sm.set_array([])
+cb = fig.colorbar(sm, ax=ax, pad=0.018, shrink=0.85)
+cb.set_label("Occupancy (%)", fontsize=10)
+cb.ax.tick_params(labelsize=8.5)
 save(fig, "fig17_hbond_occupancy.png")
 
 # ================================================================ FIG 18 口袋 RMSD
