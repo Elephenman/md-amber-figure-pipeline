@@ -1,0 +1,6 @@
+parm /home/u22607007/md/topol/WT__S1/vWT__S1.parm7
+trajin /home/u22607007/md/out/WT__S1/prod.nc 1 1500 1
+rms fit :1-254@CA first
+matrix correl name DC :1-254@CA out /home/u22607007/md/out/WT__S1/dccm_prot2.dat
+run
+quit
