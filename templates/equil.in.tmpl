@@ -1,0 +1,13 @@
+Equil — NPT {TEMP} K，骨架约束减弱 wt={RESTRAINT_WT} + 金属配位 DISANG（如启用）
+ &cntrl
+  imin=0, irest=1, ntx=5,
+  ntb=2, ntp=1, tautp=2.0, cut=10.0, ntc=2, ntf=2,
+  ntt=3, gamma_ln=1.0, temp0={TEMP},
+  nstlim=250000, dt=0.002,
+  ntpr=5000, ntwx=25000, ntwr=25000,
+  iwrap=1, ioutfm=1,
+  ntr=1, restraint_wt={RESTRAINT_WT},
+  restraintmask="{RESTRAINT_MASK}",
+{NMRPT_LINE}
+ /
+{DISANG_TAIL}

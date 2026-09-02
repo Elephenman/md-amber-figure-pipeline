@@ -1,0 +1,13 @@
+Heat — NVT 0→{TEMP} K，骨架约束 restraint_wt={RESTRAINT_WT} + 金属配位 DISANG（如启用）
+ &cntrl
+  imin=0, irest=0, ntx=1,
+  ntb=1, cut=10.0, ntc=2, ntf=2,
+  ntt=3, gamma_ln=2.0, tempi=0.0, temp0={TEMP},
+  nstlim=50000, dt=0.002,
+  ntpr=1000, ntwx=5000, ntwr=5000,
+  iwrap=1, ioutfm=1,
+  ntr=1, restraint_wt={RESTRAINT_WT},
+  restraintmask="{RESTRAINT_MASK}",
+{NMRPT_LINE}
+ /
+{DISANG_TAIL}

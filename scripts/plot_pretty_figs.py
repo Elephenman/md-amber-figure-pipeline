@@ -22,9 +22,34 @@ from scipy.ndimage import gaussian_filter
 
 # ----------------------------------------------------------------- 路径
 HERE = os.path.dirname(os.path.abspath(__file__))
-RES = os.path.join(HERE, "results", "WT__S1")
+
+
+def _norm_msys(p):
+    """Git Bash(MSYS) 路径 /a/Data/... → A:/Data/...（Windows 原生 python 可读）"""
+    m = re.match(r"^/([a-zA-Z])/(.*)$", p)
+    return f"{m.group(1).upper()}:/{m.group(2)}" if m else p
+
+
+# 傻瓜化: 允许 env 覆盖（md_easy.sh stage6 传入 MDEASY_RES=<abs results/$SYSTEM>）
+_RES_OVERRIDE = _norm_msys(os.environ.get("MDEASY_RES") or
+                           os.path.join(HERE, "results", "WT__S1"))
+CASE = os.environ.get("MDEASY_CASE") or "WT__S1"
+RES = _RES_OVERRIDE
 OUT = os.path.join(RES, "figures_pretty")
 os.makedirs(OUT, exist_ok=True)
+# env 覆盖模式: 非 PprI 体系时关闭 PprI 残基注释（fig02 等仍出图但省注释）
+ENV_OVERRIDE = bool(os.environ.get("MDEASY_RES"))
+if ENV_OVERRIDE:
+    print(f"[通用模式] MDEASY_RES={RES}  关闭 PprI 特异残基注释")
+
+
+def _ttl(desc):
+    """通用 suptitle 前缀: 非 PprI 体系(MDEASY_RES)时用 CASE, 原版保留 PprI 标签"""
+    dur = f"{NFR * DT_NS:.0f} ns" if "NFR" in globals() else "MD"
+    if ENV_OVERRIDE:
+        return f"{CASE}  {dur} MD — {desc}"
+    return f"PprI(WT)·S1-ssDNA·Mn$^{{2+}}$   {dur} MD — {desc}"
+
 
 # ----------------------------------------------------------------- 全局样式
 YAHEI = "Microsoft YaHei"
@@ -174,6 +199,13 @@ def stat_box(ax, txt, loc="upper left", fs=9.2):
 
 # ================================================================= 载入数据
 print("[load] reading cpptraj data ...")
+# 必需核心数据快速检查 —— 缺哪个直接提示, 避免深埋在 read_dat 里的 FileNotFoundError
+for _req in ("rmsd_prot.dat", "rmsf_prot.dat", "rg_prot.dat", "sasa_prot.dat",
+             "sasa_prot_iso.dat", "sasa_cplx.dat", "pca_proj.dat", "pca_all.dat"):
+    if not os.path.isfile(os.path.join(RES, _req)):
+        raise SystemExit(f"[error] 缺必需数据 {os.path.join(RES, _req)}\n"
+                         f"  → 请先运行 stage4 (bash md_easy.sh -c <config> --from 4)\n"
+                         f"  → 或检查 MDEASY_RES 是否指向含 cpptraj 产物的 results/<SYSTEM>/")
 D = {}
 D["rmsd_prot"] = read_dat(os.path.join(RES, "rmsd_prot.dat"))[:, 1]
 D["rmsd_dna"] = read_dat(os.path.join(RES, "rmsd_dna.dat"))[:, 1]
@@ -188,10 +220,14 @@ D["sasa_dna"] = read_dat(os.path.join(RES, "sasa_dna.dat"))[:, 1]
 D["sasa_cplx"] = read_dat(os.path.join(RES, "sasa_cplx.dat"))[:, 1]
 D["sasa_prot_iso"] = read_dat(os.path.join(RES, "sasa_prot_iso.dat"))[:, 1]
 D["sasa_dna_iso"] = read_dat(os.path.join(RES, "sasa_dna_iso3.dat"))[:, 1]
-D["mn_h71"] = read_dat(os.path.join(RES, "mn_H71.dat"))[:, 1]
-D["mn_h75"] = read_dat(os.path.join(RES, "mn_H75.dat"))[:, 1]
-D["mn_e102a"] = read_dat(os.path.join(RES, "mn_E102a.dat"))[:, 1]
-D["mn_e102b"] = read_dat(os.path.join(RES, "mn_E102b.dat"))[:, 1]
+# Mn²⁺ 配位时序 —— 无金属体系文件不存在, 条件装载(fig08 依 D 键存在性出占位图)
+for _mk, _mf in (("mn_h71", "mn_H71.dat"), ("mn_h75", "mn_H75.dat"),
+                 ("mn_e102a", "mn_E102a.dat"), ("mn_e102b", "mn_E102b.dat")):
+    _p = os.path.join(RES, _mf)
+    if os.path.isfile(_p):
+        D[_mk] = read_dat(_p)[:, 1]
+if not any(k in D for k in ("mn_h71", "mn_h75", "mn_e102a", "mn_e102b")):
+    print("[load] 无 Mn 配位数据 (metal-free) — fig08 将输出占位图")
 pca = read_dat(os.path.join(RES, "pca_proj.dat"))     # 1500 x (frame, m1, m2, m3)
 D["pc1"], D["pc2"], D["pc3"] = pca[:, 1], pca[:, 2], pca[:, 3]
 print("[load] pca_all (762 modes) ...")
@@ -238,7 +274,7 @@ add_marginal(fig, gs[0, 1], D["rmsd_prot"], C_PROT, xlabel="Protein",
              share_ylim=(0, max(np.nanmax(D["rmsd_prot"]), np.nanmax(D["rmsd_dna"])) * 1.02))
 add_marginal(fig, gs[0, 2], D["rmsd_dna"], C_DNA, xlabel="ssDNA",
              share_ylim=(0, max(np.nanmax(D["rmsd_prot"]), np.nanmax(D["rmsd_dna"])) * 1.02))
-fig.suptitle("PprI(WT)·S1-ssDNA·Mn$^{2+}$   150 ns MD — 构象稳定性 (RMSD)",
+fig.suptitle(_ttl("构象稳定性 (RMSD)"),
              fontsize=14.5, fontweight="bold", y=0.975)
 save(fig, "fig01_rmsd.png")
 
@@ -262,38 +298,47 @@ ax.xaxis.set_major_locator(MultipleLocator(25))
 ax.tick_params(labelbottom=False)
 ax.legend(loc="upper right", frameon=False)
 
-# 结构域/功能元件条带
+# 结构域/功能元件条带 (PprI 特异; env 覆盖模式下跳过 280-302 注释段)
 axb = fig.add_subplot(gs[1, 0], sharex=ax)
 axb.axis("off")
-bands = [(HELIX_CAT[0], HELIX_CAT[1], C_ACC, "catalytic helix 83–101 (HEXXH)"),
-         (LOOP_MOD[0], LOOP_MOD[1], GREY, "disordered loop 189–202 (modelled)")]
-for a, b, c, lab in bands:
-    axb.add_patch(plt.Rectangle((a, 0.10), b - a, 0.34, color=c, alpha=0.85,
-                                transform=axb.get_xaxis_transform(), clip_on=False))
-    axb.text((a + b) / 2, 0.52, lab, ha="center", va="bottom", fontsize=8.4, color="#4A5560")
-axb.set_ylim(0, 1)
-axb.plot([1, len(res)], [0.06, 0.06], lw=1.0, color=INK,
-         transform=axb.get_xaxis_transform(), clip_on=False)
-for r in [1, 62, 80, 168, 181, 254]:
-    axb.plot([r, r], [0.02, 0.10], lw=1.0, color=INK)
-    axb.text(r, -0.08, str(r + OFF), ha="center", va="top", fontsize=8, color="#6B7681")
+if ENV_OVERRIDE:
+    axb.plot([1, len(res)], [0.30, 0.30], lw=1.2, color=INK,
+             transform=axb.get_xaxis_transform(), clip_on=False)
+    for r in range(1, len(res) + 1, 25):
+        axb.text(r, 0.10, str(r), ha="center", va="top", fontsize=8, color="#6B7681",
+                 transform=axb.get_xaxis_transform(), clip_on=False)
+    axb.set_ylim(0, 1)
+    axb.set_xticks([])
+else:
+  bands = [(HELIX_CAT[0], HELIX_CAT[1], C_ACC, "catalytic helix 83–101 (HEXXH)"),
+           (LOOP_MOD[0], LOOP_MOD[1], GREY, "disordered loop 189–202 (modelled)")]
+  for a, b, c, lab in bands:
+      axb.add_patch(plt.Rectangle((a, 0.10), b - a, 0.34, color=c, alpha=0.85,
+                                  transform=axb.get_xaxis_transform(), clip_on=False))
+      axb.text((a + b) / 2, 0.52, lab, ha="center", va="bottom", fontsize=8.4, color="#4A5560")
+  axb.set_ylim(0, 1)
+  axb.plot([1, len(res)], [0.06, 0.06], lw=1.0, color=INK,
+           transform=axb.get_xaxis_transform(), clip_on=False)
+  for r in [1, 62, 80, 168, 181, 254]:
+      axb.plot([r, r], [0.02, 0.10], lw=1.0, color=INK)
+      axb.text(r, -0.08, str(r + OFF), ha="center", va="top", fontsize=8, color="#6B7681")
 
-# 关键残基标注 (精选子集 + 双层交错防重叠)
-ANNOT = [64, 67, 71, 75, 102, 106, 146, 149, 186, 196, 232, 246]
-for i, r in enumerate(sorted(ANNOT)):
-    nm, grp = KEY_RES[r]
-    if r > len(D["rmsf_prot"]):
-        continue
-    y0 = D["rmsf_prot"][r - 1]
-    up = bool(i % 2)
-    yy = y0 + (0.45 if up else 1.5)
-    ax.plot([r], [y0], "o", ms=6.2, color=GROUP_COLOR[grp], mec="white", mew=1.3, zorder=6)
-    ax.annotate(f"{nm}", xy=(r, y0), xytext=(r, yy), ha="center", va="bottom",
-                fontsize=8.6, fontweight="bold", color=GROUP_COLOR[grp], zorder=6,
-                arrowprops=dict(arrowstyle="-", lw=0.9, color=GROUP_COLOR[grp], alpha=0.85))
-axb.text(0.5, -0.62, "Residue (PDB author numbering)", transform=axb.transAxes,
-         ha="center", va="top", fontsize=12.5, color=INK)
-axb.set_xticks([])
+  # 关键残基标注 (精选子集 + 双层交错防重叠)
+  ANNOT = [64, 67, 71, 75, 102, 106, 146, 149, 186, 196, 232, 246]
+  for i, r in enumerate(sorted(ANNOT)):
+      nm, grp = KEY_RES[r]
+      if r > len(D["rmsf_prot"]):
+          continue
+      y0 = D["rmsf_prot"][r - 1]
+      up = bool(i % 2)
+      yy = y0 + (0.45 if up else 1.5)
+      ax.plot([r], [y0], "o", ms=6.2, color=GROUP_COLOR[grp], mec="white", mew=1.3, zorder=6)
+      ax.annotate(f"{nm}", xy=(r, y0), xytext=(r, yy), ha="center", va="bottom",
+                  fontsize=8.6, fontweight="bold", color=GROUP_COLOR[grp], zorder=6,
+                  arrowprops=dict(arrowstyle="-", lw=0.9, color=GROUP_COLOR[grp], alpha=0.85))
+  axb.text(0.5, -0.62, "Residue (PDB author numbering)", transform=axb.transAxes,
+           ha="center", va="top", fontsize=12.5, color=INK)
+  axb.set_xticks([])
 
 # 右侧: DNA 逐核苷酸 RMSF
 axd = fig.add_subplot(gs[:, 1])
@@ -315,7 +360,7 @@ ax.legend(handles=handles, loc="upper left", fontsize=8.8, frameon=False,
           bbox_to_anchor=(0.155, 1.005))
 panel_label(ax, "A")
 panel_label(axd, "B", x=-0.06, y=1.06)
-fig.suptitle("PprI(WT)·S1-ssDNA·Mn$^{2+}$   150 ns MD — 逐残基柔性 (RMSF)",
+fig.suptitle(_ttl("逐残基柔性 (RMSF)"),
              fontsize=14.5, fontweight="bold", y=0.985)
 save(fig, "fig02_rmsf.png")
 
@@ -357,7 +402,7 @@ axm.set_ylim(lo - pad, hi + pad)
 axm.axis("off")
 axm.text(0.5, 1.012, "Density", transform=axm.transAxes, ha="center",
          va="bottom", fontsize=9.5, color="#5A6670")
-fig.suptitle("PprI(WT)·S1-ssDNA·Mn$^{2+}$   150 ns MD — 整体紧致度 (Rg)",
+fig.suptitle(_ttl("整体紧致度 (Rg)"),
              fontsize=14.5, fontweight="bold", y=0.975)
 save(fig, "fig03_rg.png")
 
@@ -401,7 +446,7 @@ axm.set_ylim(lo - pad, hi + pad)
 axm.axis("off")
 axm.text(0.5, 1.012, "Density", transform=axm.transAxes, ha="center",
          va="bottom", fontsize=9.5, color="#5A6670")
-fig.suptitle("PprI(WT)·S1-ssDNA·Mn$^{2+}$   150 ns MD — 溶剂可及表面积 (SASA, LCPO)",
+fig.suptitle(_ttl("溶剂可及表面积 (SASA, LCPO)"),
              fontsize=14.5, fontweight="bold", y=0.975)
 save(fig, "fig04_sasa.png")
 
@@ -453,7 +498,7 @@ ax2.text(0.97, 0.80, f"PC1–PC3 累计 {var_pct[:3].sum():.1f}%",
 ax2.set_title("Eigenvalue spectrum", fontsize=12.5, pad=9)
 panel_label(ax1, "A")
 panel_label(ax2, "B", x=-0.03, y=1.06)
-fig.suptitle("PprI(WT)·S1-ssDNA·Mn$^{2+}$   150 ns MD — 主成分分析 (PCA, C$\\alpha$)",
+fig.suptitle(_ttl("主成分分析 (PCA, C$\\alpha$)"),
              fontsize=14.5, fontweight="bold", y=0.985)
 save(fig, "fig05_pca.png")
 
@@ -519,7 +564,7 @@ cb.outline.set_linewidth(1.1)
 cb.outline.set_edgecolor("#2B2B2B")
 panel_label(ax1, "A")
 panel_label(ax2, "B", x=-0.02, y=1.02)
-fig.suptitle("PprI(WT)·S1-ssDNA·Mn$^{2+}$   150 ns MD — 自由能形貌 (FEL)",
+fig.suptitle(_ttl("自由能形貌 (FEL)"),
              fontsize=14.5, fontweight="bold", y=0.985)
 save(fig, "fig06_fel.png")
 
@@ -595,142 +640,169 @@ def parse_decomp(path):
     return res
 
 
-MB = parse_mmpbsa(os.path.join(RES, "FINAL_RESULTS.dat"), "d")
-DC = parse_decomp(os.path.join(RES, "FINAL_DECOMP_MMPBSA.dat"))
-gb_rows = DC.get("GB", [])
-print(f"   MM-PBSA GB ΔG={MB['GB']['DELTA TOTAL'][0]:.2f}  "
-      f"PB ΔG={MB['PB']['DELTA TOTAL'][0]:.2f}  decomp rows={len(gb_rows)}")
+_MB_PATH = os.path.join(RES, "FINAL_RESULTS.dat")
+_DC_PATH = os.path.join(RES, "FINAL_DECOMP_MMPBSA.dat")
+if os.path.isfile(_MB_PATH) and os.path.isfile(_DC_PATH):
+    MB = parse_mmpbsa(_MB_PATH, "d")
+    DC = parse_decomp(_DC_PATH)
+    gb_rows = DC.get("GB", [])
+    print(f"   MM-PBSA GB ΔG={MB['GB']['DELTA TOTAL'][0]:.2f}  "
+          f"PB ΔG={MB['PB']['DELTA TOTAL'][0]:.2f}  decomp rows={len(gb_rows)}")
+else:
+    MB = DC = None
+    gb_rows = []
+    print("[跳过 fig07] 缺 MM-PBSA 产物（FINAL_RESULTS.dat / FINAL_DECOMP_MMPBSA.dat）")
 
-fig = plt.figure(figsize=(12.6, 5.8))
-gs = fig.add_gridspec(1, 2, width_ratios=[1.05, 1.0], wspace=0.235,
-                      left=0.058, right=0.975, top=0.855, bottom=0.135)
+if MB is None:
+    # 缺 MMPBSA 数据: 输出占位说明图, 保 fig 编号连续（fig21/24 同理由 plot2/3 处理）
+    fig, ax = plt.subplots(figsize=(8.4, 3.6))
+    ax.axis("off")
+    ax.text(0.5, 0.5, "fig07 skipped — no MM-PBSA data\n(run stage5 or set DO_MMPBSA=yes)",
+            ha="center", va="center", fontsize=13, color="#8A8F98")
+    save(fig, "fig07_mmpbsa.png")
+    print("[fig07] placeholder saved")
+else:
+    # ---- fig07 原绘图体（仅 MB 可用时执行）----
 
-# --- Panel A: 能量项 (GB vs PB 分组柱), PB 非极性 = ENPOLAR + EDISPER
-ax1 = fig.add_subplot(gs[0, 0])
-pb_np = tuple(np.sum([MB["PB"].get(k, (0.0, 0.0))[i] for k in ("ENPOLAR", "EDISPER")])
-              for i in (0, 1))
-terms = [("VDWAALS", "ΔE$_{vdW}$"), ("EEL", "ΔE$_{elec}$"),
-         ("EGB", "ΔG$_{polar}^{GB}$"), ("EPB", "ΔG$_{polar}^{PB}$"),
-         ("ESURF", "ΔG$_{np}^{GB}$"), (None, "ΔG$_{np}^{PB}$"),
-         ("DELTA TOTAL", "ΔG$_{bind}$")]
-gbv, gbe, pbv, pbe, labels, cols = [], [], [], [], [], []
-cmap = [C_DNA, C_DNA, C_PROT, C_PROT, C_CPLX, C_CPLX, C_ACC]
-for (k, lab), c in zip(terms, cmap):
-    a = MB["GB"].get(k) if k else None
-    b = pb_np if k is None else MB["PB"].get(k)
-    if a is None and b is None:
-        continue
-    labels.append(lab)
-    gbv.append(a[0] if a else np.nan)
-    gbe.append(a[1] if a else 0.0)
-    pbv.append(b[0] if b else np.nan)
-    pbe.append(b[1] if b else 0.0)
-    cols.append(c)
-x = np.arange(len(labels))
-w = 0.37
-ax1.bar(x - w / 2, gbv, w, yerr=gbe, color=C_PROT, alpha=0.92, label="GB (igb=5)",
-        edgecolor="white", lw=0.9, error_kw=dict(ecolor="#2B2B2B", capsize=3.5, lw=1.1))
-ax1.bar(x + w / 2, pbv, w, yerr=pbe, color=C_ACC, alpha=0.92, label="PB (istrng=0.15)",
-        edgecolor="white", lw=0.9, error_kw=dict(ecolor="#2B2B2B", capsize=3.5, lw=1.1))
-style_ax(ax1)
-ax1.axhline(0, lw=1.15, color=INK)
-ax1.set_xticks(x)
-ax1.set_xticklabels(labels, fontsize=10.2)
-ax1.set_ylabel("Energy (kcal/mol)", fontsize=12.5)
-ax1.legend(loc="lower left", frameon=False, fontsize=10.5)
-# ΔG 总量标注
-ax1.text(0.985, 0.965,
-         f"ΔG$_{{bind}}$(GB) = {MB['GB']['DELTA TOTAL'][0]:.1f} ± {MB['GB']['DELTA TOTAL'][1]:.1f}\n"
-         f"ΔG$_{{bind}}$(PB) = {MB['PB']['DELTA TOTAL'][0]:.1f} ± {MB['PB']['DELTA TOTAL'][1]:.1f}  kcal/mol",
-         transform=ax1.transAxes, ha="right", va="top", fontsize=10.6,
-         fontweight="bold", color="#1A1A1A",
-         bbox=dict(boxstyle="round,pad=0.42", fc="#FFF7E6", ec=C_ACC, lw=1.2))
-ax1.set_title("Binding free-energy components", fontsize=12.5, pad=9)
+    fig = plt.figure(figsize=(12.6, 5.8))
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.05, 1.0], wspace=0.235,
+                          left=0.058, right=0.975, top=0.855, bottom=0.135)
 
-# --- Panel B: per-residue 分解 (Top 稳定化残基)
-ax2 = fig.add_subplot(gs[0, 1])
-rows = [r for r in gb_rows]
-rows.sort(key=lambda r: r["tot"])
-top = rows[:22][::-1]
-ylab, ytot, ystd, ycol = [], [], [], []
-for r in top:
-    is_dna = r["loc"] == "L"
-    if is_dna:
-        pos = r["num"] - 254
-        ylab.append(f"dN{pos}")
-        ycol.append(C_DNA)
-    else:
-        ylab.append(f"{r['name'].split()[0].title()}{r['num'] + OFF}")
-        ycol.append(C_PROT if r["tot"] < -1.0 else "#8FB6DC")
-    ytot.append(r["tot"])
-    ystd.append(r["tot_std"])
-y = np.arange(len(top))
-ax2.barh(y, ytot, xerr=ystd, color=ycol, height=0.72, edgecolor="white", lw=0.7,
-         error_kw=dict(ecolor="#2B2B2B", capsize=2.6, lw=0.9))
-style_ax(ax2, gridy=False, gridx=True)
-ax2.axvline(0, lw=1.15, color=INK)
-ax2.set_yticks(y)
-ax2.set_yticklabels(ylab, fontsize=9.2)
-ax2.set_xlabel("ΔG$_{residue}$ (kcal/mol, GB idecomp=1)", fontsize=12)
-ax2.set_title("Per-residue decomposition (Top 22 stabilizing)", fontsize=12.5, pad=9)
-ax2.text(0.98, 0.025, "blue = protein   ·   orange = ssDNA nucleotide",
-         transform=ax2.transAxes, fontsize=9, color="#5A6670", ha="right")
-panel_label(ax1, "A")
-panel_label(ax2, "B", x=-0.025, y=1.06)
-fig.suptitle("PprI(WT)·S1-ssDNA·Mn$^{2+}$   MM-PBSA 结合自由能 (后 100 ns: 帧 500–1500)",
-             fontsize=14.5, fontweight="bold", y=0.985)
-save(fig, "fig07_mmpbsa.png")
+    # --- Panel A: 能量项 (GB vs PB 分组柱), PB 非极性 = ENPOLAR + EDISPER
+    ax1 = fig.add_subplot(gs[0, 0])
+    pb_np = tuple(np.sum([MB["PB"].get(k, (0.0, 0.0))[i] for k in ("ENPOLAR", "EDISPER")])
+                  for i in (0, 1))
+    terms = [("VDWAALS", "ΔE$_{vdW}$"), ("EEL", "ΔE$_{elec}$"),
+             ("EGB", "ΔG$_{polar}^{GB}$"), ("EPB", "ΔG$_{polar}^{PB}$"),
+             ("ESURF", "ΔG$_{np}^{GB}$"), (None, "ΔG$_{np}^{PB}$"),
+             ("DELTA TOTAL", "ΔG$_{bind}$")]
+    gbv, gbe, pbv, pbe, labels, cols = [], [], [], [], [], []
+    cmap = [C_DNA, C_DNA, C_PROT, C_PROT, C_CPLX, C_CPLX, C_ACC]
+    for (k, lab), c in zip(terms, cmap):
+        a = MB["GB"].get(k) if k else None
+        b = pb_np if k is None else MB["PB"].get(k)
+        if a is None and b is None:
+            continue
+        labels.append(lab)
+        gbv.append(a[0] if a else np.nan)
+        gbe.append(a[1] if a else 0.0)
+        pbv.append(b[0] if b else np.nan)
+        pbe.append(b[1] if b else 0.0)
+        cols.append(c)
+    x = np.arange(len(labels))
+    w = 0.37
+    ax1.bar(x - w / 2, gbv, w, yerr=gbe, color=C_PROT, alpha=0.92, label="GB (igb=5)",
+            edgecolor="white", lw=0.9, error_kw=dict(ecolor="#2B2B2B", capsize=3.5, lw=1.1))
+    ax1.bar(x + w / 2, pbv, w, yerr=pbe, color=C_ACC, alpha=0.92, label="PB (istrng=0.15)",
+            edgecolor="white", lw=0.9, error_kw=dict(ecolor="#2B2B2B", capsize=3.5, lw=1.1))
+    style_ax(ax1)
+    ax1.axhline(0, lw=1.15, color=INK)
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(labels, fontsize=10.2)
+    ax1.set_ylabel("Energy (kcal/mol)", fontsize=12.5)
+    ax1.legend(loc="lower left", frameon=False, fontsize=10.5)
+    # ΔG 总量标注
+    ax1.text(0.985, 0.965,
+             f"ΔG$_{{bind}}$(GB) = {MB['GB']['DELTA TOTAL'][0]:.1f} ± {MB['GB']['DELTA TOTAL'][1]:.1f}\n"
+             f"ΔG$_{{bind}}$(PB) = {MB['PB']['DELTA TOTAL'][0]:.1f} ± {MB['PB']['DELTA TOTAL'][1]:.1f}  kcal/mol",
+             transform=ax1.transAxes, ha="right", va="top", fontsize=10.6,
+             fontweight="bold", color="#1A1A1A",
+             bbox=dict(boxstyle="round,pad=0.42", fc="#FFF7E6", ec=C_ACC, lw=1.2))
+    ax1.set_title("Binding free-energy components", fontsize=12.5, pad=9)
+
+    # --- Panel B: per-residue 分解 (Top 稳定化残基)
+    ax2 = fig.add_subplot(gs[0, 1])
+    rows = [r for r in gb_rows]
+    rows.sort(key=lambda r: r["tot"])
+    top = rows[:22][::-1]
+    ylab, ytot, ystd, ycol = [], [], [], []
+    for r in top:
+        is_dna = r["loc"] == "L"
+        if is_dna:
+            pos = r["num"] - 254
+            ylab.append(f"dN{pos}")
+            ycol.append(C_DNA)
+        else:
+            ylab.append(f"{r['name'].split()[0].title()}{r['num'] + OFF}")
+            ycol.append(C_PROT if r["tot"] < -1.0 else "#8FB6DC")
+        ytot.append(r["tot"])
+        ystd.append(r["tot_std"])
+    y = np.arange(len(top))
+    ax2.barh(y, ytot, xerr=ystd, color=ycol, height=0.72, edgecolor="white", lw=0.7,
+             error_kw=dict(ecolor="#2B2B2B", capsize=2.6, lw=0.9))
+    style_ax(ax2, gridy=False, gridx=True)
+    ax2.axvline(0, lw=1.15, color=INK)
+    ax2.set_yticks(y)
+    ax2.set_yticklabels(ylab, fontsize=9.2)
+    ax2.set_xlabel("ΔG$_{residue}$ (kcal/mol, GB idecomp=1)", fontsize=12)
+    ax2.set_title("Per-residue decomposition (Top 22 stabilizing)", fontsize=12.5, pad=9)
+    ax2.text(0.98, 0.025, "blue = protein   ·   orange = ssDNA nucleotide",
+             transform=ax2.transAxes, fontsize=9, color="#5A6670", ha="right")
+    panel_label(ax1, "A")
+    panel_label(ax2, "B", x=-0.025, y=1.06)
+    fig.suptitle(_ttl("MM-PBSA 结合自由能 (GB igb=5 / PB istrng=0.15)"),
+                 fontsize=14.5, fontweight="bold", y=0.985)
+    save(fig, "fig07_mmpbsa.png")
 
 
 # ================================================================= FIG 8  Mn 配位
 print("[fig08] Mn coordination")
-fig = plt.figure(figsize=(10.2, 5.0))
-gs = fig.add_gridspec(1, 2, width_ratios=[5.4, 1.15], wspace=0.07,
-                      left=0.072, right=0.972, top=0.855, bottom=0.145)
-ax = fig.add_subplot(gs[0, 0])
-series = [("mn_h71", "His92 N$_{\\epsilon2}$", C_PROT),
-          ("mn_h75", "His96 N$_{\\epsilon2}$", C_PUR),
-          ("mn_e102a", "Glu123 O$_{\\epsilon1}$", C_DNA),
-          ("mn_e102b", "Glu123 O$_{\\epsilon2}$", C_ACC)]
-for key, lab, col in series:
-    y = D[key]
-    ax.plot(T, y, lw=0.8, color=col, alpha=0.28, zorder=2)
-    ax.plot(T, roll_mean(y, 10), lw=1.85, color=col, label=lab, zorder=3)
-ax.axhspan(1.8, 2.4, color="#B7E4C7", alpha=0.42, zorder=0)
-ax.axhline(2.10, ls="--", lw=1.1, color="#2D6A4F", alpha=0.8, zorder=1)
-style_ax(ax)
-ax.set_xlabel("Time (ns)", fontsize=12.5)
-ax.set_ylabel(r"Mn$^{2+}$—ligand distance ($\rm \AA$)", fontsize=12.5)
-ax.set_xlim(0, T[-1])
-ax.set_ylim(1.4, 6.2)
-ax.xaxis.set_major_locator(MultipleLocator(25))
-ax.yaxis.set_major_locator(MultipleLocator(1.0))
-ax.legend(loc="upper right", frameon=False, ncol=2, fontsize=9.8)
-lines = []
-for key, lab, col in series:
-    y = D[key]
-    lines.append(f"{lab:<18s} {np.nanmean(y):.2f} ± {np.nanstd(y):.2f} $\\rm\\AA$")
-stat_box(ax, "\n".join(lines), loc="upper left", fs=8.8)
+_mn_keys = ("mn_h71", "mn_h75", "mn_e102a", "mn_e102b")
+if not all(k in D for k in _mn_keys):
+    fig, ax = plt.subplots(figsize=(8.4, 3.6))
+    ax.axis("off")
+    ax.text(0.5, 0.5, "fig08 skipped — no Mn$^{2+}$ coordination data\n(metal-free system, or no Mn in input PDB)",
+            ha="center", va="center", fontsize=13, color="#8A8F98")
+    save(fig, "fig08_mn_coordination.png")
+    print("[fig08] placeholder saved")
+else:
+    fig = plt.figure(figsize=(10.2, 5.0))
+    gs = fig.add_gridspec(1, 2, width_ratios=[5.4, 1.15], wspace=0.07,
+                          left=0.072, right=0.972, top=0.855, bottom=0.145)
+    ax = fig.add_subplot(gs[0, 0])
+    series = [("mn_h71", "His92 N$_{\\epsilon2}$", C_PROT),
+              ("mn_h75", "His96 N$_{\\epsilon2}$", C_PUR),
+              ("mn_e102a", "Glu123 O$_{\\epsilon1}$", C_DNA),
+              ("mn_e102b", "Glu123 O$_{\\epsilon2}$", C_ACC)]
+    for key, lab, col in series:
+        y = D[key]
+        ax.plot(T, y, lw=0.8, color=col, alpha=0.28, zorder=2)
+        ax.plot(T, roll_mean(y, 10), lw=1.85, color=col, label=lab, zorder=3)
+    ax.axhspan(1.8, 2.4, color="#B7E4C7", alpha=0.42, zorder=0)
+    ax.axhline(2.10, ls="--", lw=1.1, color="#2D6A4F", alpha=0.8, zorder=1)
+    style_ax(ax)
+    ax.set_xlabel("Time (ns)", fontsize=12.5)
+    ax.set_ylabel(r"Mn$^{2+}$—ligand distance ($\rm \AA$)", fontsize=12.5)
+    ax.set_xlim(0, T[-1])
+    ax.set_ylim(1.4, 6.2)
+    ax.xaxis.set_major_locator(MultipleLocator(25))
+    ax.yaxis.set_major_locator(MultipleLocator(1.0))
+    ax.legend(loc="upper right", frameon=False, ncol=2, fontsize=9.8)
+    lines = []
+    for key, lab, col in series:
+        y = D[key]
+        lines.append(f"{lab:<18s} {np.nanmean(y):.2f} ± {np.nanstd(y):.2f} $\\rm\\AA$")
+    stat_box(ax, "\n".join(lines), loc="upper left", fs=8.8)
 
-axm = fig.add_subplot(gs[0, 1])
-allv = np.concatenate([D[k] for k, _, _ in series])
-lo, hi = 1.6, min(5.0, np.nanpercentile(allv, 99.5))
-ys = np.linspace(lo, hi, 300)
-for key, lab, col in series:
-    d = D[key][(D[key] >= lo) & (D[key] <= hi)]
-    if len(d) < 10:
-        continue
-    kde = gaussian_kde(d)
-    axm.plot(kde(ys), ys, color=col, lw=1.7)
-    cnt, edg = np.histogram(d, bins=45, density=True)
-    axm.barh(0.5 * (edg[:-1] + edg[1:]), cnt, height=(edg[1] - edg[0]) * 0.9,
-             color=col, alpha=0.18, edgecolor="none")
-axm.set_ylim(lo, hi)
-axm.axis("off")
-axm.text(0.5, 1.012, "Density", transform=axm.transAxes, ha="center",
-         va="bottom", fontsize=9.5, color="#5A6670")
-fig.suptitle("PprI(WT)·S1-ssDNA·Mn$^{2+}$   150 ns MD — Mn$^{2+}$ 三齿配位稳定性",
-             fontsize=14.5, fontweight="bold", y=0.975)
-save(fig, "fig08_mn_coordination.png")
+    axm = fig.add_subplot(gs[0, 1])
+    allv = np.concatenate([D[k] for k, _, _ in series])
+    lo, hi = 1.6, min(5.0, np.nanpercentile(allv, 99.5))
+    ys = np.linspace(lo, hi, 300)
+    for key, lab, col in series:
+        d = D[key][(D[key] >= lo) & (D[key] <= hi)]
+        if len(d) < 10:
+            continue
+        kde = gaussian_kde(d)
+        axm.plot(kde(ys), ys, color=col, lw=1.7)
+        cnt, edg = np.histogram(d, bins=45, density=True)
+        axm.barh(0.5 * (edg[:-1] + edg[1:]), cnt, height=(edg[1] - edg[0]) * 0.9,
+                 color=col, alpha=0.18, edgecolor="none")
+    axm.set_ylim(lo, hi)
+    axm.axis("off")
+    axm.text(0.5, 1.012, "Density", transform=axm.transAxes, ha="center",
+             va="bottom", fontsize=9.5, color="#5A6670")
+    fig.suptitle(_ttl("Mn$^{2+}$ 三齿配位稳定性"),
+                 fontsize=14.5, fontweight="bold", y=0.975)
+    save(fig, "fig08_mn_coordination.png")
 
 print("\n[done] all figures ->", OUT)

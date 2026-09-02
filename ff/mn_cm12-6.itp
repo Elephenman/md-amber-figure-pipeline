@@ -1,0 +1,19 @@
+; Mn2+ CM 12-6 力场参数（GROMACS itp 格式）
+; 来源: Li, P.; Roberts, B. P.; Chakravorty, D. K.; Merz, K. M. Jr.
+;   "Rational Design of Particle Mesh Ewald Compatible Lennard-Jones Parameters
+;    for +2 Metal Cations in Explicit Solvent"  J. Chem. Theory Comput. 2013, 9, 2733-2748.
+;   PMC3728907 | DOI: 10.1021/ct400146w
+; 参数集: CM (compromise) set, TIP3P
+;   AMBER R* (Rmin/2) = 1.407 A -> sigma = Rmin/2^(1/6) = 0.25070 nm
+;   epsilon = 0.01686710 kcal/mol = 0.07057 kJ/mol
+;   q = +2
+[ defaults ]
+; nbfunc        comb-rule  gen-pairs  fudgeLJ  fudgeQQ
+    1           2           yes        0.5      0.5
+
+[ atomtypes ]
+; name  mass     charge  ptype  sigma(nm)   epsilon(kJ/mol)
+  MN    54.938   2.000   A      0.25070     0.07057
+
+; 使用方式: 本片段 include 进主拓扑，或在 [ atomtypes ] 定义 MN 后，
+; 复合物结构中 Mn2+ 原子类型写 MN，电荷 +2（parmed 转出时自动带出）。

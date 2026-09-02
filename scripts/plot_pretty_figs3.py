@@ -92,42 +92,50 @@ print(f"   DCCM vlim ±{vlim:.2f}; cat×Cterm {blk_cat:+.2f}; cat×core1 {blk_n:
 
 # ================================================================ FIG 24 蛋白 per-residue 分解
 print("[fig24] MM-PBSA protein per-residue")
-gb_rows = P.parse_decomp(os.path.join(RES, "FINAL_DECOMP_MMPBSA.dat")).get("GB", [])
-prot = [r for r in gb_rows if r.get("loc") == "R"]
-prot.sort(key=lambda r: r["num"])
-seqs = np.array([r["num"] for r in prot])
-tots = np.array([r["tot"] for r in prot])
-key_ids = [k for k in KEY if k in seqs]
-fig = plt.figure(figsize=(12.4, 5.2))
-ax = fig.add_subplot(111)
-ax.axvspan(0.5, 155.5, color=C_PROT, alpha=0.045, lw=0)
-ax.axvspan(155.5, 254.5, color=C_PUR, alpha=0.045, lw=0)
-ax.text(78, ax.get_ylim()[1] if False else 1.02, "", fontsize=1)
-cols = np.where(tots < 0, C_PROT, "#E8B4B8")
-ax.bar(seqs, tots, color=cols, width=0.85, alpha=0.88)
-ax.axhline(0, lw=1.2, color=INK)
-for s in seqs[::25]:
-    pass
-# 关键残基竖线
-for k in key_ids:
-    ax.axvline(k, color=GREY, ls=":", lw=0.7, alpha=0.8)
-    ax.text(k, ax.get_ylim()[0] - (ax.get_ylim()[1] - ax.get_ylim()[0]) * 0.03,
-            KEY[k][0], rotation=60, fontsize=7.2, color="#5A6670",
-            ha="center", va="top")
-ax.text(78, 1.0, "GAF 域", transform=ax.get_xaxis_transform(),
-        ha="center", color=C_PROT, fontsize=10, fontweight="bold", alpha=0.75)
-ax.text(205, 1.0, "C 端蛋白酶域", transform=ax.get_xaxis_transform(),
-        ha="center", color=C_PUR, fontsize=10, fontweight="bold", alpha=0.75)
-ax.set_xlim(0.5, 254.5)
-ax.set_xlabel("蛋白残基 (seq)", fontsize=12.5)
-ax.set_ylabel("ΔG$_{res}$ (kcal/mol, GB)", fontsize=12.5)
-style_ax(ax)
-top = sorted(zip(seqs, tots), key=lambda z: z[1])[:6]
-lab = "  ".join(f"{KEY.get(s,(str(s),''))[0]} {v:.1f}" for s, v in top)
-stat_box(ax, f"ΣΔG = {tots.sum():.1f} kcal/mol\n稳定残基: {lab}", loc="upper left")
-ax.set_title("MM-PBSA 蛋白 per-residue 分解（负值 = 稳定结合贡献）", fontsize=13)
-save(fig, "fig24_mmpbsa_prot_residue.png")
-print(f"   ΣΔG {tots.sum():.1f}; top {[(KEY.get(int(s),('',))[0] or int(s), round(float(v),1)) for s,v in top]}")
+try:
+    gb_rows = P.parse_decomp(os.path.join(RES, "FINAL_DECOMP_MMPBSA.dat")).get("GB", [])
+    prot = [r for r in gb_rows if r.get("loc") == "R"]
+    prot.sort(key=lambda r: r["num"])
+    seqs = np.array([r["num"] for r in prot])
+    tots = np.array([r["tot"] for r in prot])
+    key_ids = [k for k in KEY if k in seqs]
+    fig = plt.figure(figsize=(12.4, 5.2))
+    ax = fig.add_subplot(111)
+    ax.axvspan(0.5, 155.5, color=C_PROT, alpha=0.045, lw=0)
+    ax.axvspan(155.5, 254.5, color=C_PUR, alpha=0.045, lw=0)
+    ax.text(78, ax.get_ylim()[1] if False else 1.02, "", fontsize=1)
+    cols = np.where(tots < 0, C_PROT, "#E8B4B8")
+    ax.bar(seqs, tots, color=cols, width=0.85, alpha=0.88)
+    ax.axhline(0, lw=1.2, color=INK)
+    for s in seqs[::25]:
+        pass
+    # 关键残基竖线
+    for k in key_ids:
+        ax.axvline(k, color=GREY, ls=":", lw=0.7, alpha=0.8)
+        ax.text(k, ax.get_ylim()[0] - (ax.get_ylim()[1] - ax.get_ylim()[0]) * 0.03,
+                KEY[k][0], rotation=60, fontsize=7.2, color="#5A6670",
+                ha="center", va="top")
+    ax.text(78, 1.0, "GAF 域", transform=ax.get_xaxis_transform(),
+            ha="center", color=C_PROT, fontsize=10, fontweight="bold", alpha=0.75)
+    ax.text(205, 1.0, "C 端蛋白酶域", transform=ax.get_xaxis_transform(),
+            ha="center", color=C_PUR, fontsize=10, fontweight="bold", alpha=0.75)
+    ax.set_xlim(0.5, 254.5)
+    ax.set_xlabel("蛋白残基 (seq)", fontsize=12.5)
+    ax.set_ylabel("ΔG$_{res}$ (kcal/mol, GB)", fontsize=12.5)
+    style_ax(ax)
+    top = sorted(zip(seqs, tots), key=lambda z: z[1])[:6]
+    lab = "  ".join(f"{KEY.get(s,(str(s),''))[0]} {v:.1f}" for s, v in top)
+    stat_box(ax, f"ΣΔG = {tots.sum():.1f} kcal/mol\n稳定残基: {lab}", loc="upper left")
+    ax.set_title("MM-PBSA 蛋白 per-residue 分解（负值 = 稳定结合贡献）", fontsize=13)
+    print(f"   ΣΔG {tots.sum():.1f}; top {[(KEY.get(int(s),('',))[0] or int(s), round(float(v),1)) for s,v in top]}")
+    save(fig, "fig24_mmpbsa_prot_residue.png")
+except FileNotFoundError:
+    print("  skipped — 缺 FINAL_DECOMP_MMPBSA.dat（先跑 stage5 / DO_MMPBSA=yes）")
+    fig, ax = plt.subplots(figsize=(8.4, 3.6))
+    ax.axis("off")
+    ax.text(0.5, 0.5, "fig24 skipped — no MM-PBSA decomp data\n(run stage5 or set DO_MMPBSA=yes)",
+            ha="center", va="center", fontsize=13, color="#8A8F98")
+    save(fig, "fig24_mmpbsa_prot_residue.png")
 
 # ================================================================ FIG 25 H 键 occupancy 分布
 print("[fig25] H-bond occupancy distribution")
@@ -272,36 +280,44 @@ print(f"   SS {SS.shape}; alpha_frac {alpha_frac.mean():.2f}±{alpha_frac.std():
 # ================================================================ FIG 28 RMSF vs B-factor
 print("[fig28] RMSF vs crystal B-factor")
 rmsf = read(os.path.join(RES, "rmsf_prot.dat"))
-bf = np.loadtxt(os.path.join(RES, "bfactor_prot.dat"), skiprows=1)   # seq pdb B (nan)
-B = np.full(254, np.nan)
-B[bf[:, 0].astype(int) - 1] = bf[:, 2]           # seq -> index
-B_eq = np.sqrt(3.0 * B / (8.0 * np.pi ** 2))          # 当量 RMSF (Å)
-x = np.arange(1, 255)
-good = ~np.isnan(B_eq)
-fig = plt.figure(figsize=(12.4, 5.0))
-ax = fig.add_subplot(111)
-ax.fill_between(x, rmsf[:, 1], color=C_PROT, alpha=0.28, lw=0)
-ax.plot(x, rmsf[:, 1], color=C_PROT, lw=1.6, label="MD RMSF (CA)")
-ax.plot(x[good], B_eq[good], color=C_DNA, lw=1.7, alpha=0.9,
-        label="crystal B-factor 当量 RMSF")
-r = np.corrcoef(rmsf[good, 1], B_eq[good])[0, 1]
-ax.axvspan(LOOP[0], LOOP[1], color=GREY, alpha=0.18, lw=0)
-ax.text((LOOP[0] + LOOP[1]) / 2, ax.get_ylim()[1] * 0.94, "无序环\n(建模)",
-        ha="center", fontsize=8.5, color="#5A6670")
-for k, (nm, grp) in KEY.items():
-    col = P.GROUP_COLOR.get(grp, GREY)
-    ax.axvline(k, color=col, ls=":", lw=0.8, alpha=0.75)
-    ax.text(k, ax.get_ylim()[0] + 0.04, KEY[k][0], rotation=55, fontsize=7.2,
-            color=col, ha="right", va="bottom", fontweight="bold")
-ax.set_xlim(1, 254)
-ax.set_xlabel("蛋白残基 (seq)", fontsize=12.5)
-ax.set_ylabel("RMSF / 当量 RMSF (Å)", fontsize=12.5)
-style_ax(ax)
-ax.legend(loc="upper left", fontsize=10, frameon=False)
-stat_box(ax, f"Pearson r = {r:.2f}  (n={good.sum()})", loc="upper right")
-ax.set_title("MD 柔性 vs 晶体 B-factor 校验（B → √(3B/8π²) 当量化）", fontsize=13)
-save(fig, "fig28_rmsf_vs_bfactor.png")
-print(f"   Pearson r = {r:.2f} (n={good.sum()})")
+try:
+    bf = np.loadtxt(os.path.join(RES, "bfactor_prot.dat"), skiprows=1)   # seq pdb B (nan)
+    B = np.full(254, np.nan)
+    B[bf[:, 0].astype(int) - 1] = bf[:, 2]           # seq -> index
+    B_eq = np.sqrt(3.0 * B / (8.0 * np.pi ** 2))          # 当量 RMSF (Å)
+    x = np.arange(1, 255)
+    good = ~np.isnan(B_eq)
+    fig = plt.figure(figsize=(12.4, 5.0))
+    ax = fig.add_subplot(111)
+    ax.fill_between(x, rmsf[:, 1], color=C_PROT, alpha=0.28, lw=0)
+    ax.plot(x, rmsf[:, 1], color=C_PROT, lw=1.6, label="MD RMSF (CA)")
+    ax.plot(x[good], B_eq[good], color=C_DNA, lw=1.7, alpha=0.9,
+            label="crystal B-factor 当量 RMSF")
+    r = np.corrcoef(rmsf[good, 1], B_eq[good])[0, 1]
+    ax.axvspan(LOOP[0], LOOP[1], color=GREY, alpha=0.18, lw=0)
+    ax.text((LOOP[0] + LOOP[1]) / 2, ax.get_ylim()[1] * 0.94, "无序环\n(建模)",
+            ha="center", fontsize=8.5, color="#5A6670")
+    for k, (nm, grp) in KEY.items():
+        col = P.GROUP_COLOR.get(grp, GREY)
+        ax.axvline(k, color=col, ls=":", lw=0.8, alpha=0.75)
+        ax.text(k, ax.get_ylim()[0] + 0.04, KEY[k][0], rotation=55, fontsize=7.2,
+                color=col, ha="right", va="bottom", fontweight="bold")
+    ax.set_xlim(1, 254)
+    ax.set_xlabel("蛋白残基 (seq)", fontsize=12.5)
+    ax.set_ylabel("RMSF / 当量 RMSF (Å)", fontsize=12.5)
+    style_ax(ax)
+    ax.legend(loc="upper left", fontsize=10, frameon=False)
+    stat_box(ax, f"Pearson r = {r:.2f}  (n={good.sum()})", loc="upper right")
+    ax.set_title("MD 柔性 vs 晶体 B-factor 校验（B → √(3B/8π²) 当量化）", fontsize=13)
+    save(fig, "fig28_rmsf_vs_bfactor.png")
+    print(f"   Pearson r = {r:.2f} (n={good.sum()})")
+except FileNotFoundError:
+    print("  skipped — 缺数据（bfactor_prot.dat(可选: 晶体 CA B-factor, 格式 #Seq PDBres Bfactor_CA)）")
+    fig, ax = plt.subplots(figsize=(8.4, 3.6))
+    ax.axis("off")
+    ax.text(0.5, 0.5, "fig28 skipped — 缺 bfactor_prot.dat(可选: 晶体 CA B-factor, 格式 #Seq PDBres Bfactor_CA)\n(optional input / 非本体系产物)",
+            ha="center", va="center", fontsize=13, color="#8A8F98")
+    save(fig, "fig28_rmsf_vs_bfactor.png")
 
 # ================================================================ FIG 29 DNA 形态三指标
 print("[fig29] ssDNA morphology: EE / Rg / bend")
@@ -336,30 +352,38 @@ print(f"   EE {mstd(ee)}; Rg {mstd(rg)}; bend {mstd(bd,0)}")
 
 # ================================================================ FIG 30 Mn RDF
 print("[fig30] Mn2+ RDF")
-rdf = read(os.path.join(RES, "mn_rdf.dat"), skip=1)
-r_ = rdf[:, 0]
-g = rdf[:, 1]
-fig = plt.figure(figsize=(8.2, 5.2))
-ax = fig.add_subplot(111)
-ax.plot(r_, g, color=C_ACC, lw=2.2)
-ax.fill_between(r_, g, color=C_ACC, alpha=0.22)
-# 第一配位壳层峰
-peak_i = np.argmax(g[(r_ >= 1.5) & (r_ <= 3.5)])
-r_peak = r_[(r_ >= 1.5) & (r_ <= 3.5)][peak_i]
-ax.axvline(r_peak, ls="--", lw=1.1, color=C_ACC)
-ax.text(r_peak + 0.15, g.max() * 0.9, f"第一壳层 {r_peak:.1f} Å",
-        fontsize=10.5, color="#B7791F", fontweight="bold")
-# 晶体配位键参考 (fig08: H71/H75/E102 ~2.2/2.25/2.77)
-for xr, lab in [(2.23, "H71"), (2.25, "H75"), (2.77, "E102")]:
-    ax.axvline(xr, ls=":", lw=0.9, color=GREY, alpha=0.8)
-    ax.text(xr, g.max() * 0.06, lab, fontsize=8, color="#5A6670",
-            ha="center", rotation=90)
-ax.set_xlim(0, 10)
-ax.set_xlabel("r (Å)", fontsize=12.5)
-ax.set_ylabel("g(r)  Mn$^{2+}$ → 蛋白原子", fontsize=12.5)
-style_ax(ax)
-ax.set_title("Mn$^{2+}$ 配位环境径向分布（RDF, 150 ns）", fontsize=13)
-save(fig, "fig30_mn_rdf.png")
-print(f"   first-shell peak {r_peak:.2f} Å; gmax {g.max():.2f}")
+try:
+    rdf = read(os.path.join(RES, "mn_rdf.dat"), skip=1)
+    r_ = rdf[:, 0]
+    g = rdf[:, 1]
+    fig = plt.figure(figsize=(8.2, 5.2))
+    ax = fig.add_subplot(111)
+    ax.plot(r_, g, color=C_ACC, lw=2.2)
+    ax.fill_between(r_, g, color=C_ACC, alpha=0.22)
+    # 第一配位壳层峰
+    peak_i = np.argmax(g[(r_ >= 1.5) & (r_ <= 3.5)])
+    r_peak = r_[(r_ >= 1.5) & (r_ <= 3.5)][peak_i]
+    ax.axvline(r_peak, ls="--", lw=1.1, color=C_ACC)
+    ax.text(r_peak + 0.15, g.max() * 0.9, f"第一壳层 {r_peak:.1f} Å",
+            fontsize=10.5, color="#B7791F", fontweight="bold")
+    # 晶体配位键参考 (fig08: H71/H75/E102 ~2.2/2.25/2.77)
+    for xr, lab in [(2.23, "H71"), (2.25, "H75"), (2.77, "E102")]:
+        ax.axvline(xr, ls=":", lw=0.9, color=GREY, alpha=0.8)
+        ax.text(xr, g.max() * 0.06, lab, fontsize=8, color="#5A6670",
+                ha="center", rotation=90)
+    ax.set_xlim(0, 10)
+    ax.set_xlabel("r (Å)", fontsize=12.5)
+    ax.set_ylabel("g(r)  Mn$^{2+}$ → 蛋白原子", fontsize=12.5)
+    style_ax(ax)
+    ax.set_title("Mn$^{2+}$ 配位环境径向分布（RDF, 150 ns）", fontsize=13)
+    save(fig, "fig30_mn_rdf.png")
+    print(f"   first-shell peak {r_peak:.2f} Å; gmax {g.max():.2f}")
+except FileNotFoundError:
+    print("  skipped — 缺数据（mn_rdf.dat(金属体系才产出)）")
+    fig, ax = plt.subplots(figsize=(8.4, 3.6))
+    ax.axis("off")
+    ax.text(0.5, 0.5, "fig30 skipped — 缺 mn_rdf.dat(金属体系才产出)\n(optional input / 非本体系产物)",
+            ha="center", va="center", fontsize=13, color="#8A8F98")
+    save(fig, "fig30_mn_rdf.png")
 
 print("ALL DONE (fig23-30)")

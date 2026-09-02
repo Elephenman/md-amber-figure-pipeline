@@ -1,0 +1,15 @@
+Prod — NPT {TEMP} K 生产：ntr=0 自由动力学（勿加骨架约束！见注释）+ Mn DISANG（如启用）
+ 2026-09-01 项目教训: 原 restraint_wt=1.0 骨架约束把 RMSD 钉死到 0.39 A（300K/150ns
+ 正常 1.5-3 A），构象采样失效。生产必须 ntr=0；漂移由分析端 autoimage+best-fit 消除。
+ 帧频: ntwx=50000 → 100 ps/帧；150 ns = 1500 帧（满足 MM-PBSA >=1000 帧文献标准）
+ &cntrl
+  imin=0, irest=1, ntx=5,
+  ntb=2, ntp=1, tautp=2.0, cut=10.0, ntc=2, ntf=2,
+  ntt=3, gamma_ln=1.0, temp0={TEMP},
+  nstlim={NSTLIM}, dt=0.002,
+  ntpr=50000, ntwx=50000, ntwr=250000,
+  iwrap=1, ioutfm=1, ntxo=2,
+  ntr=0,
+{NMRPT_LINE}
+ /
+{DISANG_TAIL}

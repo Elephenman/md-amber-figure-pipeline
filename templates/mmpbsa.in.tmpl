@@ -1,0 +1,28 @@
+&general
+  startframe={START},
+  endframe={END},
+  interval={INTERVAL},
+  keep_files=0,
+  verbose=2,
+  # 2026-09-02 教训: 轨迹剥离须与 cp.parm7 原子数一致（排除 Mn）——否则 NATOM mismatch
+  #   （cp 剥 Mn 后 vs 坐标含 Mn）; 且 sander GB 不识别 Mn 原子类型。
+  strip_mask=':WAT,:Na+,:Cl-,:MN',
+/
+# PB: 总结合自由能（论文标准，istrng=0.15 与显式盐浓度一致）
+&pb
+  istrng=0.15,
+  radiopt=0,
+  indi=4.0,
+  exdi=78.5,
+/
+# GB: per-residue 分解（突变机制证据; igb=5 Onufriev）
+# 2026-09-02 修复: &decomp 不接受 igb 变量（MMPBSA.py InputError: Unknown variable igb in &decomp）
+#   —— 溶剂模型由 &gb 段继承，&decomp 只留 idecomp/dec_verbose。
+&gb
+  igb=5,
+  saltcon=0.150,
+/
+&decomp
+  idecomp=1,
+  dec_verbose=1,
+/

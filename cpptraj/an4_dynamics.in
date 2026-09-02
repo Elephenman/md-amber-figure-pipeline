@@ -1,8 +1,8 @@
-parm /home/u22607007/md/topol/WT__S1/vWT__S1.parm7
-trajin /home/u22607007/md/out/WT__S1/prod.nc 1 1500 1
-# DCCM: 蛋白 CA 原子运动互相关矩阵 (254x254)
-matrix correl name DC :1-254@CA out /home/u22607007/md/out/WT__S1/dccm_prot.dat
-# ssDNA 弯曲角: 5'端(nt1) - 中间(nt13) - 3'端(nt24) C3' 三点角
-angle DNA_BEND :255@C3' :267@C3' :278@C3' out /home/u22607007/md/out/WT__S1/dna_bend.dat
+# an4 — ssDNA 弯曲角 (5'端-中点-3'端 C3' 三点角) + 端距补充（fig29 数据源; 需要核酸）
+# {DNA_MID} = (DNA_LO+DNA_HI+1)/2 中点残基; 三点角 >180 无意义时 cpptraj 取内角 (0-180)
+# 模板占位符: {PARM7} {TRAJIN_BLOCK} {DNA_LO} {DNA_MID} {DNA_HI} {RAW}
+parm {PARM7}
+{TRAJIN_BLOCK}
+angle DNA_BEND :{DNA_LO}@C3' :{DNA_MID}@C3' :{DNA_HI}@C3' out {RAW}/dna_bend.dat
 run
 quit

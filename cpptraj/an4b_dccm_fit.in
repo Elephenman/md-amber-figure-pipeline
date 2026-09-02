@@ -1,6 +1,9 @@
-parm /home/u22607007/md/topol/WT__S1/vWT__S1.parm7
-trajin /home/u22607007/md/out/WT__S1/prod.nc 1 1500 1
-rms fit :1-254@CA first
-matrix correl name DC :1-254@CA out /home/u22607007/md/out/WT__S1/dccm_prot2.dat
+# an4b — 蛋白 CA 运动互相关矩阵 DCCM（fig23 数据源; 需要蛋白）
+# 铁律: 必须先 rms fit 去刚体运动, 否则全正相关（刚体扩散主导, 早期教训）
+# 模板占位符: {PARM7} {TRAJIN_BLOCK} {PROT_RANGE} {RAW}
+parm {PARM7}
+{TRAJIN_BLOCK}
+rms fit :{PROT_RANGE}@CA first
+matrix correl name DC :{PROT_RANGE}@CA out {RAW}/dccm_prot.dat
 run
 quit

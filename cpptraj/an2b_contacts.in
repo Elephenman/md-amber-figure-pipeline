@@ -1,6 +1,9 @@
-parm /home/u22607007/md/topol/WT__S1/vWT__S1.parm7
-trajin /home/u22607007/md/out/WT__S1/prod.nc 1 1500 5
-nativecontacts :1-254 :255-278 byresidue distance 4.5 resout /home/u22607007/md/out/WT__S1/nat_res.dat out /home/u22607007/md/out/WT__S1/nat_series.dat
-hbond HBALL :1-254,:255-278 dist 3.5 angle 120 series out /home/u22607007/md/out/WT__S1/hb_all_series.dat avgout /home/u22607007/md/out/WT__S1/hb_all_avg.dat
+# an2b — 蛋白-核酸界面 native contacts 时序 + 界面总氢键（fig15/16/17/26 数据源）
+# 注意: hbond 双 mask 用逗号合并为 HBALL[UU] 总数（series 无法逐键，逐键改用 an3 距离法）
+# 模板占位符: {PARM7} {TRAJIN_BLOCK} {PROT_RANGE} {DNA_RANGE} {RAW}
+parm {PARM7}
+{TRAJIN_BLOCK}
+nativecontacts :{PROT_RANGE} :{DNA_RANGE} byresidue distance 4.5 resout {RAW}/nat_res.dat out {RAW}/nat_series.dat
+hbond HBALL :{PROT_RANGE},{DNA_RANGE} dist 3.5 angle 120 series out {RAW}/hb_all_series.dat avgout {RAW}/hb_all_avg.dat
 run
 quit

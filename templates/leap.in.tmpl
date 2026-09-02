@@ -1,0 +1,13 @@
+# ===== tleap 拓扑构建模板（占位符由 stage1_tleap.sh render 替换，勿手改）=====
+source {LP_PROT}
+source {LP_DNA}
+source {LP_WAT}
+loadoff atomic_ions.lib
+loadamberparams {IONS_FRCMOD}
+{METAL_FRCMOD_LINE}
+mol = loadpdb {INPUT_PDB}
+solvateoct mol {WAT_FF}BOX {BOX_DIST}
+addions mol Na+ 0
+addions mol Cl- 0
+saveamberparm mol {OUT_PARM7} {OUT_RST7}
+quit

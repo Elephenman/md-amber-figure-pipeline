@@ -1,6 +1,8 @@
-parm /home/u22607007/md/topol/WT__S1/vWT__S1.parm7
-trajin /home/u22607007/md/out/WT__S1/prod.nc 1 1500 1
-# ssDNA 首尾距 (5' C5' - 3' O3'); 5' DT5 残基 255 无 P 原子, 用 C5' 起算
-distance DNA_EE :255@C5' :278@O3' out /home/u22607007/md/out/WT__S1/dna_ee.dat
+# an2d — ssDNA 首尾距 end-to-end (5' C5' - 3' O3')（fig19/29 数据源; 需要核酸）
+# 5' 端残基 {DNA_LO} 常无 P 原子 → 用 C5' 起算; 3' 端 {DNA_HI} 用 O3' 收尾
+# 模板占位符: {PARM7} {TRAJIN_BLOCK} {DNA_LO} {DNA_HI} {RAW}
+parm {PARM7}
+{TRAJIN_BLOCK}
+distance DNA_EE :{DNA_LO}@C5' :{DNA_HI}@O3' out {RAW}/dna_ee.dat
 run
 quit

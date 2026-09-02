@@ -1,5 +1,8 @@
-parm /home/u22607007/md/topol/WT__S1/vWT__S1.parm7
-trajin /home/u22607007/md/out/WT__S1/prod.nc 1 1500 1
-rms POCK (:71,75,102)|@MN first out /home/u22607007/md/out/WT__S1/pock_rmsd.dat
+# an2c — 金属配位口袋 RMSD（fig18 数据源; 需要 Mn）
+# {POCK_MASK} 由 stage2 的 make_restraints.py 探测 3.5A 内配位原子生成, 形如 (:71,75,102)|@MN
+# 模板占位符: {PARM7} {TRAJIN_BLOCK} {POCK_MASK} {RAW}
+parm {PARM7}
+{TRAJIN_BLOCK}
+rms POCK {POCK_MASK} first out {RAW}/pock_rmsd.dat
 run
 quit

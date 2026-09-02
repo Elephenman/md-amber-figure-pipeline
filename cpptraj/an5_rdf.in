@@ -1,5 +1,10 @@
-parm /home/u22607007/md/topol/WT__S1/vWT__S1.parm7
-trajin /home/u22607007/md/out/WT__S1/prod.nc 1 1500 1
-rdf MnProt :MN@MN :1-254@* out /home/u22607007/md/out/WT__S1/mn_rdf_norm.dat
+# an5 — Mn2+ 配位环境 RDF（fig30 数据源; 需要 Mn）
+# 语法: rdf <分布原子mask> <中心原子mask> spacing max — 4 参数全要
+#   mask1=蛋白重原子(分布), mask2=Mn(中心): :{PROT_RANGE}@* :{MN_RES}@MN
+#   （顺序颠倒 → g(r) 数量级 0.001 的错误, 早期踩坑）
+# 模板占位符: {PARM7} {TRAJIN_BLOCK} {PROT_RANGE} {MN_RES} {RES}
+parm {PARM7}
+{TRAJIN_BLOCK}
+rdf MnProt :{PROT_RANGE}@* :{MN_RES}@MN 0.1 10.0 out {RES}/mn_rdf.dat
 run
 quit

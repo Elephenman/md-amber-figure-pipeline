@@ -1,8 +1,10 @@
-parm /home/u22607007/md/topol/WT__S1/vWT__S1.parm7
-trajin /home/u22607007/md/out/WT__S1/prod.nc 1 1500 1
+# an1 — 二级结构 DSSP + Ramachandran phi/psi（fig13/14/27 数据源）
+# 模板占位符: {PARM7} {TRAJIN_BLOCK} {PROT_RANGE} {RAW}
+parm {PARM7}
+{TRAJIN_BLOCK}
 autoimage
-dssp PROTEIN :1-254 out /home/u22607007/md/out/WT__S1/dssp.dat sumout /home/u22607007/md/out/WT__S1/dssp_sum.dat
-multidihedral phi resrange 1-254 out /home/u22607007/md/out/WT__S1/phi.dat
-multidihedral psi resrange 1-254 out /home/u22607007/md/out/WT__S1/psi.dat
+dssp PROTEIN :{PROT_RANGE} out {RAW}/dssp.dat sumout {RAW}/dssp_sum.dat
+multidihedral phi resrange {PROT_RANGE} out {RAW}/phi.dat
+multidihedral psi resrange {PROT_RANGE} out {RAW}/psi.dat
 run
 quit

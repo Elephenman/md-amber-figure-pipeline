@@ -423,33 +423,41 @@ save(fig, "fig20_rmsf_zoom.png")
 
 # ================================================================ FIG 21 核苷酸分解
 print("[fig21] per-nucleotide MM-PBSA")
-gb_rows = parse_decomp(os.path.join(RES, "FINAL_DECOMP_MMPBSA.dat")).get("GB", [])
-nts = [r for r in gb_rows if r["loc"] == "L"]
-nts.sort(key=lambda r: r["num"])
-pos = np.array([r["num"] - 254 for r in nts])       # nt 1-24
-tot = np.array([r["tot"] for r in nts])
-fig = plt.figure(figsize=(11.4, 4.8))
-ax = fig.add_subplot(111)
-cols = [C_DNA if t < 0 else "#C9A2C8" for t in tot]
-ax.bar(pos, tot, color=cols, alpha=0.9, width=0.78)
-ax.axhline(0, lw=1.2, color=INK)
-for i, t in enumerate(tot):
-    ax.text(pos[i], t + (0.5 if t >= 0 else -0.5), f"{t:.1f}", ha="center",
-            va="bottom" if t >= 0 else "top", fontsize=7.0, color="#3C4852")
-ax.set_xticks(pos)
-ax.set_xticklabels([f"{p}\n{S1[p-1]}" for p in pos], fontsize=8.6)
-ax.set_xlabel("ssDNA nucleotide (5′ → 3′)", fontsize=12.5)
-ax.set_ylabel("ΔG$_{nt}$ (kcal/mol, GB)", fontsize=12.5)
-style_ax(ax)
-ax.axvspan(9.5, 10.5, color="lime", alpha=0.16, lw=0)
-ax.axvspan(22.5, 23.5, color="lime", alpha=0.16, lw=0)
-ax.text(10, ax.get_ylim()[0] + (ax.get_ylim()[1] - ax.get_ylim()[0]) * 0.03,
-        "dG10", color="#3E8E3E", fontsize=10, ha="center", fontweight="bold")
-ax.text(23, ax.get_ylim()[0] + (ax.get_ylim()[1] - ax.get_ylim()[0]) * 0.03,
-        "T23", color="#3E8E3E", fontsize=10, ha="center", fontweight="bold")
-tot_nt = tot.sum()
-ax.set_title(f"MM-PBSA per-nucleotide 分解（ΣΔG$_{{nt}}$ = {tot_nt:.1f} kcal/mol）", fontsize=13)
-save(fig, "fig21_nucleotide_decomp.png")
+try:
+    gb_rows = parse_decomp(os.path.join(RES, "FINAL_DECOMP_MMPBSA.dat")).get("GB", [])
+    nts = [r for r in gb_rows if r["loc"] == "L"]
+    nts.sort(key=lambda r: r["num"])
+    pos = np.array([r["num"] - 254 for r in nts])       # nt 1-24
+    tot = np.array([r["tot"] for r in nts])
+    fig = plt.figure(figsize=(11.4, 4.8))
+    ax = fig.add_subplot(111)
+    cols = [C_DNA if t < 0 else "#C9A2C8" for t in tot]
+    ax.bar(pos, tot, color=cols, alpha=0.9, width=0.78)
+    ax.axhline(0, lw=1.2, color=INK)
+    for i, t in enumerate(tot):
+        ax.text(pos[i], t + (0.5 if t >= 0 else -0.5), f"{t:.1f}", ha="center",
+                va="bottom" if t >= 0 else "top", fontsize=7.0, color="#3C4852")
+    ax.set_xticks(pos)
+    ax.set_xticklabels([f"{p}\n{S1[p-1]}" for p in pos], fontsize=8.6)
+    ax.set_xlabel("ssDNA nucleotide (5′ → 3′)", fontsize=12.5)
+    ax.set_ylabel("ΔG$_{nt}$ (kcal/mol, GB)", fontsize=12.5)
+    style_ax(ax)
+    ax.axvspan(9.5, 10.5, color="lime", alpha=0.16, lw=0)
+    ax.axvspan(22.5, 23.5, color="lime", alpha=0.16, lw=0)
+    ax.text(10, ax.get_ylim()[0] + (ax.get_ylim()[1] - ax.get_ylim()[0]) * 0.03,
+            "dG10", color="#3E8E3E", fontsize=10, ha="center", fontweight="bold")
+    ax.text(23, ax.get_ylim()[0] + (ax.get_ylim()[1] - ax.get_ylim()[0]) * 0.03,
+            "T23", color="#3E8E3E", fontsize=10, ha="center", fontweight="bold")
+    tot_nt = tot.sum()
+    ax.set_title(f"MM-PBSA per-nucleotide 分解（ΣΔG$_{{nt}}$ = {tot_nt:.1f} kcal/mol）", fontsize=13)
+    save(fig, "fig21_nucleotide_decomp.png")
+except FileNotFoundError:
+    print("  skipped — 缺 FINAL_DECOMP_MMPBSA.dat（先跑 stage5 / DO_MMPBSA=yes）")
+    fig, ax = plt.subplots(figsize=(8.4, 3.6))
+    ax.axis("off")
+    ax.text(0.5, 0.5, "fig21 skipped — no MM-PBSA decomp data\n(run stage5 or set DO_MMPBSA=yes)",
+            ha="center", va="center", fontsize=13, color="#8A8F98")
+    save(fig, "fig21_nucleotide_decomp.png")
 
 # ================================================================ FIG 22 界面氢键动态时序
 # 数据: an3_hbdist.in (CHPC cpptraj V6.4.4) — 6 条关键界面 H 键 heavy-atom 距离逐帧时序
@@ -466,59 +474,67 @@ HB_FILES = [
 ]
 HB_CUT = 3.5          # cpptraj hbond 距离阈值 (Å)
 hb_data = {}           # name -> (t_ns, dist, occ_frac)
-for fn, lab, col in HB_FILES:
-    d = read_dat(os.path.join(RAW, fn))          # (frame, dist)
-    t = (d[:, 0] - 1) * DT_NS                     # 帧1 -> 0 ns
-    dist = d[:, 1]
-    hb_data[fn] = (t, dist, (dist < HB_CUT).mean(), lab, col)
-    print(f"   {lab:28s} mean {dist.mean():.2f} Å  <3.5 Å {100*(dist<HB_CUT).mean():5.1f}%")
+try:
+    for fn, lab, col in HB_FILES:
+        d = read_dat(os.path.join(RAW, fn))          # (frame, dist)
+        t = (d[:, 0] - 1) * DT_NS                     # 帧1 -> 0 ns
+        dist = d[:, 1]
+        hb_data[fn] = (t, dist, (dist < HB_CUT).mean(), lab, col)
+        print(f"   {lab:28s} mean {dist.mean():.2f} Å  <3.5 Å {100*(dist<HB_CUT).mean():5.1f}%")
 
-fig = plt.figure(figsize=(11.6, 7.4))
-gs = fig.add_gridspec(2, 1, hspace=0.34, height_ratios=[1.15, 0.62],
-                      left=0.075, right=0.985, top=0.885, bottom=0.09)
-# ---- 上: 距离时序 ----
-ax = fig.add_subplot(gs[0])
-for fn, (t, dist, occ, lab, col) in hb_data.items():
-    ax.plot(t, dist, lw=0.5, color=col, alpha=0.13, zorder=2)
-    ax.plot(t, roll_mean(dist, 50), lw=2.0, color=col,
-            label=f"{lab}  ⟨d⟩={dist.mean():.2f} Å  occ={100*occ:.0f}%", zorder=3)
-ax.axhline(HB_CUT, ls="--", lw=1.0, color=GREY, zorder=1)
-ax.text(0, HB_CUT + 0.12, "3.5 Å (cpptraj H-bond cutoff)", fontsize=8.5,
-        color="#5A6670", va="bottom")
-ax.set_ylabel("Heavy-atom distance (Å)", fontsize=12.5)
-style_ax(ax)
-ax.set_ylim(2.0, 8.0)
-ax.xaxis.set_major_locator(MultipleLocator(25))
-ax.legend(loc="upper right", ncol=1, fontsize=8.8, framealpha=0.9,
-          borderpad=0.5, labelspacing=0.45)
-ax.set_title("6 条关键界面氢键 150 ns 逐帧距离（细线=原始，粗线=5 ns 滚动均值；低=稳定成键）",
-             fontsize=12.5)
-# 机制区带 (核心1 dG10 区 vs 核心2 poly-T 区 已由键色区分, 不额外画区)
-# ---- 下: 成键状态栅栏图 (occupancy raster) ----
-ax2 = fig.add_subplot(gs[1])
-occmat = np.vstack([(d < HB_CUT).astype(int) for (t, d, occ, lab, col) in hb_data.values()])
-from matplotlib.colors import ListedColormap
-ax2.imshow(occmat, aspect="auto", cmap=ListedColormap(["#EAEEF2", "#2B6CB0"]),
-           origin="lower", extent=(0, T[-1], -0.5, len(HB_FILES) - 0.5),
-           interpolation="nearest")
-ax2.set_yticks(np.arange(len(HB_FILES)))
-ax2.set_yticklabels([f"{lab.split('  (')[0]}" for _, lab, _ in
-                     [(fn, lab, col) for fn, (t, d, occ, lab, col) in hb_data.items()]],
-                    fontsize=9)
-ax2.set_xlabel("Time (ns)", fontsize=12)
-ax2.xaxis.set_major_locator(MultipleLocator(25))
-ax2.tick_params(direction="out")
-ax2.set_title("成键状态栅栏（每帧 d < 3.5 Å 计 1；蓝色=氢键维持，灰=断裂/展开）",
-              fontsize=11.5, pad=6)
-for i, (fn, (t, d, occ, lab, col)) in enumerate(hb_data.items()):
-    ax2.text(T[-1] - 0.5, i, f"  occ {100*occ:.0f}%", va="center", ha="right",
-             fontsize=8.6, color="white" if occ > 0.5 else "#3C4852")
-    if occ >= 0.85:
-        ax2.text(T[-1] * 0.5, i, f"  {100*occ:.0f}% 维持", va="center", ha="center",
-                 fontsize=8, color="white", alpha=0.75)
-fig.suptitle("PprI(WT)·S1-ssDNA·Mn$^{2+}$   150 ns MD — 关键界面氢键动态 (an3_hbdist, 0.1 ns/帧)",
-             fontsize=14, y=0.97)
-save(fig, "fig22_hbond_timeseries.png")
+    fig = plt.figure(figsize=(11.6, 7.4))
+    gs = fig.add_gridspec(2, 1, hspace=0.34, height_ratios=[1.15, 0.62],
+                          left=0.075, right=0.985, top=0.885, bottom=0.09)
+    # ---- 上: 距离时序 ----
+    ax = fig.add_subplot(gs[0])
+    for fn, (t, dist, occ, lab, col) in hb_data.items():
+        ax.plot(t, dist, lw=0.5, color=col, alpha=0.13, zorder=2)
+        ax.plot(t, roll_mean(dist, 50), lw=2.0, color=col,
+                label=f"{lab}  ⟨d⟩={dist.mean():.2f} Å  occ={100*occ:.0f}%", zorder=3)
+    ax.axhline(HB_CUT, ls="--", lw=1.0, color=GREY, zorder=1)
+    ax.text(0, HB_CUT + 0.12, "3.5 Å (cpptraj H-bond cutoff)", fontsize=8.5,
+            color="#5A6670", va="bottom")
+    ax.set_ylabel("Heavy-atom distance (Å)", fontsize=12.5)
+    style_ax(ax)
+    ax.set_ylim(2.0, 8.0)
+    ax.xaxis.set_major_locator(MultipleLocator(25))
+    ax.legend(loc="upper right", ncol=1, fontsize=8.8, framealpha=0.9,
+              borderpad=0.5, labelspacing=0.45)
+    ax.set_title("6 条关键界面氢键 150 ns 逐帧距离（细线=原始，粗线=5 ns 滚动均值；低=稳定成键）",
+                 fontsize=12.5)
+    # 机制区带 (核心1 dG10 区 vs 核心2 poly-T 区 已由键色区分, 不额外画区)
+    # ---- 下: 成键状态栅栏图 (occupancy raster) ----
+    ax2 = fig.add_subplot(gs[1])
+    occmat = np.vstack([(d < HB_CUT).astype(int) for (t, d, occ, lab, col) in hb_data.values()])
+    from matplotlib.colors import ListedColormap
+    ax2.imshow(occmat, aspect="auto", cmap=ListedColormap(["#EAEEF2", "#2B6CB0"]),
+               origin="lower", extent=(0, T[-1], -0.5, len(HB_FILES) - 0.5),
+               interpolation="nearest")
+    ax2.set_yticks(np.arange(len(HB_FILES)))
+    ax2.set_yticklabels([f"{lab.split('  (')[0]}" for _, lab, _ in
+                         [(fn, lab, col) for fn, (t, d, occ, lab, col) in hb_data.items()]],
+                        fontsize=9)
+    ax2.set_xlabel("Time (ns)", fontsize=12)
+    ax2.xaxis.set_major_locator(MultipleLocator(25))
+    ax2.tick_params(direction="out")
+    ax2.set_title("成键状态栅栏（每帧 d < 3.5 Å 计 1；蓝色=氢键维持，灰=断裂/展开）",
+                  fontsize=11.5, pad=6)
+    for i, (fn, (t, d, occ, lab, col)) in enumerate(hb_data.items()):
+        ax2.text(T[-1] - 0.5, i, f"  occ {100*occ:.0f}%", va="center", ha="right",
+                 fontsize=8.6, color="white" if occ > 0.5 else "#3C4852")
+        if occ >= 0.85:
+            ax2.text(T[-1] * 0.5, i, f"  {100*occ:.0f}% 维持", va="center", ha="center",
+                     fontsize=8, color="white", alpha=0.75)
+    fig.suptitle("PprI(WT)·S1-ssDNA·Mn$^{2+}$   150 ns MD — 关键界面氢键动态 (an3_hbdist, 0.1 ns/帧)",
+                 fontsize=14, y=0.97)
+    save(fig, "fig22_hbond_timeseries.png")
+except FileNotFoundError:
+    print("  skipped — 缺 an3 hbd_*.dat（config HBOND_PAIRS 需与 fig22 六键同名）")
+    fig, ax = plt.subplots(figsize=(8.4, 3.6))
+    ax.axis("off")
+    ax.text(0.5, 0.5, "fig22 skipped — no an3 h-bond distance data\n(set HBOND_PAIRS in config to the 6 key bonds)",
+            ha="center", va="center", fontsize=13, color="#8A8F98")
+    save(fig, "fig22_hbond_timeseries.png")
 print("   [fig22] full per-frame timeseries from CHPC an3_hbdist.in")
 
 print("[done] fig09-22 all saved to", OUT)
