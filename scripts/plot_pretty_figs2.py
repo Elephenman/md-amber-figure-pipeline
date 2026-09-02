@@ -438,40 +438,97 @@ tot_nt = tot.sum()
 ax.set_title(f"MM-PBSA per-nucleotide 分解（ΣΔG$_{{nt}}$ = {tot_nt:.1f} kcal/mol）", fontsize=13)
 save(fig, "fig21_nucleotide_decomp.png")
 
-# ================================================================ FIG 22 界面氢键时程
-print("[fig22] top interface H-bonds timeseries")
-ser = np.loadtxt(os.path.join(RAW, "hb_all_series.dat"), skiprows=1)
-tn5 = ser[:, 0] * DT_NS * 5
-# 一次扫描 avgout 建立 (acc,don) -> 数据行序 (series 列序与 avgout 一致, 列0=frame)
-row_order = {}
+# ================================================================ FIG 22 界面氢键二维谱
+# 原 plan: 6 条关键界面氢键距离时序 (an3_hbdist.in + CHPC) -- 需要 CHPC 凭据
+# 本地替身: 静态二维谱 occupancy vs avg-distance (来自 hb_all_avg.dat) +
+#           注释关键键 (双锁/核心) + 角度着色 + 高亮 dG10/T23 关键键
+print("[fig22] interface H-bond 2D spectrum (occupancy vs avg-distance)")
+rows22 = []
 with open(os.path.join(RAW, "hb_all_avg.dat"), encoding="utf-8", errors="ignore") as fh:
-    ri = 0
     for ln in fh:
         if ln.startswith("#") or not ln.strip():
             continue
         f = ln.split()
-        if len(f) >= 3:
-            row_order[(f[0], f[2])] = ri
-        ri += 1
-ncol = ser.shape[1] - 1
-print(f"   series cols={ncol}, avg data rows={len(row_order)}")
-fig = plt.figure(figsize=(10.4, 5.0))
-ax = fig.add_subplot(111)
-for j, (fr, nfr, ra, rd, acc, don, d, an) in enumerate(rows[:5][::-1]):
-    series_col = row_order.get((acc, don))
-    if series_col is None or series_col >= ncol:
-        continue
-    occ = np.convolve(ser[:, 1 + series_col], np.ones(15) / 15, mode="same")
-    who_d = "DNA" if rd > 254 else f"{don.split('_')[0]}{rd}"
-    who_a = "DNA" if ra > 254 else f"{acc.split('_')[0]}{ra}"
-    ax.plot(tn5, occ * 100, lw=2.0, color=PALETTE[j % 6],
-            label=f"{who_d}:{don.split('_')[-1]} → {who_a}:{acc.split('_')[-1]}")
-style_ax(ax)
-ax.set_xlabel("Time (ns)", fontsize=12.5); ax.set_ylabel("Occupancy (%, 7.5 ns window)", fontsize=11)
-ax.set_ylim(-2, 105)
-ax.xaxis.set_major_locator(MultipleLocator(25))
-ax.legend(loc="lower left", fontsize=8.2, ncol=2)
-ax.set_title("Top 界面氢键占有率时程（平滑窗口 15 帧 = 7.5 ns）", fontsize=13)
+        if len(f) < 7:
+            continue
+        acc, donh, don = f[0], f[1], f[2]
+        m_acc = re.match(r"([A-Z0-9]+)_(\d+)@(.+)", acc)
+        m_don = re.match(r"([A-Z0-9]+)_(\d+)@(.+)", don)
+        if not m_acc or not m_don:
+            continue
+        ra, rd = int(m_acc.group(2)), int(m_don.group(2))
+        is_if = (ra <= 254 < rd) or (rd <= 254 < ra)
+        if not is_if:
+            continue
+        rows22.append((float(f[4]), float(f[5]), float(f[6]),
+                       ra, rd, acc, don, f[3]))
+rows22.sort(reverse=True)
+print(f"   {len(rows22)} interfacial H-bonds; top dist/angle summary ready")
+
+# 关键键 (seq 蛋白 <-> nt): (donor_seq, acceptor_nt)  -> 标签
+#   S167(seq146)-G17(nt17) ; N127(seq106)-G17(nt17) ; R207(seq186)-T15(nt15)
+#   R253(seq232)-T23(nt23) ; S251(seq230)-T23(nt23) ; R220(seq199)-T22(nt22)
+DNA_PARM0 = 254
+KEY_BONDS = [
+    (146, 271, "S167–G17", C_ACC),     # S167(seq146) Watson-Crick to G17(nt17,parm271)  90.7%
+    (106, 271, "N127–G17", C_PROT),    # N127(seq106) Hoogsteen to G17                 76.0%
+    (186, 269, "R207–T15", C_DNA),     # R207(seq186) to OP1 of T15(nt15,parm269)      87.0%
+    (232, 278, "R253–T24", C_TEAL),    # R253(seq232) to OP1 of 3'T(nt24,parm278)      76.7%
+    (230, 277, "S251–T23", C_PUR),     # S251(seq230) to O3' of T23(nt23,parm277)      74.0%
+    (199, 276, "R220–T22", C_CPLX),    # R220(seq199) to OP1 of T22(nt22,parm276)      66.0%
+]
+KEY_LABELS = set((d, a) for d, a, *_ in KEY_BONDS)
+
+fig = plt.figure(figsize=(10.6, 6.4))
+gs = fig.add_gridspec(1, 1, left=0.085, right=0.985, top=0.90, bottom=0.11)
+ax = fig.add_subplot(gs[0])
+xs = np.array([r[1] for r in rows22])              # avg distance
+ys = np.array([r[0] * 100 for r in rows22])        # occupancy %
+ang = np.array([r[2] for r in rows22])             # avg angle (deg)
+sc = ax.scatter(xs, ys, c=ang, cmap="viridis", s=18, alpha=0.7,
+                vmin=120, vmax=180, edgecolor="none", zorder=3)
+cb = fig.colorbar(sc, ax=ax, pad=0.018, shrink=0.92)
+cb.set_label("Avg donor-H…acceptor angle (°)", fontsize=11)
+ax.set_xlim(2.5, 4.0); ax.set_ylim(-3, 105)
+ax.set_xlabel("Avg heavy-atom distance (Å)", fontsize=12.5)
+ax.set_ylabel("H-bond occupancy (%, 150 ns)", fontsize=12.5)
+# H-bond 几何阈值参考
+ax.axvspan(2.5, 3.2, color=C_ACC, alpha=0.06, lw=0, zorder=1)
+ax.axvspan(3.2, 3.5, color=C_ACC, alpha=0.03, lw=0, zorder=1)
+ax.axvline(3.5, ls="--", lw=0.9, color=GREY, zorder=2)
+ax.text(3.50, 100, "  3.5 Å cutoff (cpptraj)", ha="left", va="top",
+        fontsize=9, color="#5A6670", zorder=2)
+ax.text(2.85, 96, "strong", ha="center", va="top",
+        fontsize=8.5, color="#3E8060", fontweight="bold")
+ax.text(3.30, 96, "moderate", ha="center", va="top",
+        fontsize=8.5, color="#3E8060", fontweight="bold")
+# 高亮关键键
+hl = []
+for d_seq, a_parm, lab, col in KEY_BONDS:
+    for r in rows22:
+        if d_seq in (r[3], r[4]) and a_parm in (r[3], r[4]):
+            hl.append((r, lab, col))
+            break
+for r, lab, col in hl:
+    ax.scatter([r[1]], [r[0] * 100], s=140, facecolor="none",
+               edgecolor=col, lw=2.0, zorder=4)
+    ax.annotate(lab, (r[1], r[0] * 100),
+                xytext=(r[1] + 0.04, r[0] * 100 - 4.5),
+                fontsize=9, color=col, fontweight="bold",
+                arrowprops=dict(arrowstyle="-", lw=0.8, color=col))
+# 整体标注
+ax.set_title("界面 H 键二维谱：occupancy × 距离 × 角度（关键双锁/核心键高亮）",
+             fontsize=13, pad=6)
+# 上右框去除
+ax.spines["top"].set_visible(False); ax.spines["right"].set_visible(False)
+ax.tick_params(direction="out")
+ax.grid(True, lw=0.3, color=GRIDC, alpha=0.5)
+stat_box(ax, f"n = {len(rows22)} interface H-bonds\n"
+             f"median occ. = {np.median(ys):.0f} %\n"
+             f"strong (<3.2 Å) = {(xs < 3.2).sum()}",
+         loc="upper right")
+fig.suptitle("PprI(WT)·S1-ssDNA·Mn$^{2+}$   150 ns MD — 界面 H 键网络静态谱", fontsize=14, y=0.972)
 save(fig, "fig22_hbond_timeseries.png")
+print(f"   [fig22] fallback used (static 2D spectrum); an3-based timeseries needs CHPC")
 
 print("[done] fig09-22 all saved to", OUT)
