@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+*.swp
+*.bak
+results/
+*.parm7
+*.nc
+*.rst7
+prod.out
+*.log

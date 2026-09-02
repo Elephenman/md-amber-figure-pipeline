@@ -1,0 +1,8 @@
+parm /home/u22607007/md/topol/WT__S1/vWT__S1.parm7
+trajin /home/u22607007/md/out/WT__S1/prod.nc 1 1500 1
+autoimage
+dssp PROTEIN :1-254 out /home/u22607007/md/out/WT__S1/dssp.dat sumout /home/u22607007/md/out/WT__S1/dssp_sum.dat
+multidihedral phi resrange 1-254 out /home/u22607007/md/out/WT__S1/phi.dat
+multidihedral psi resrange 1-254 out /home/u22607007/md/out/WT__S1/psi.dat
+run
+quit

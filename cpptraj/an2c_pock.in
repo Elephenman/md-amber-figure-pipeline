@@ -1,0 +1,5 @@
+parm /home/u22607007/md/topol/WT__S1/vWT__S1.parm7
+trajin /home/u22607007/md/out/WT__S1/prod.nc 1 1500 1
+rms POCK (:71,75,102)|@MN first out /home/u22607007/md/out/WT__S1/pock_rmsd.dat
+run
+quit

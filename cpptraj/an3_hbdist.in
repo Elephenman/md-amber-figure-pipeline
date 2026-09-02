@@ -1,0 +1,10 @@
+parm /home/u22607007/md/topol/WT__S1/vWT__S1.parm7
+trajin /home/u22607007/md/out/WT__S1/prod.nc 1 1500 1
+distance hb_S167_dG17 :146@OG :271@O6 out /home/u22607007/md/out/WT__S1/hbd_S167_dG17.dat
+distance hb_N127_dG17 :106@ND2 :271@O4' out /home/u22607007/md/out/WT__S1/hbd_N127_dG17.dat
+distance hb_R207_P15 :186@NH1 :269@OP1 out /home/u22607007/md/out/WT__S1/hbd_R207_P15.dat
+distance hb_R253_P3end :232@NH1 :278@OP1 out /home/u22607007/md/out/WT__S1/hbd_R253_P24.dat
+distance hb_S251_T23 :230@OG :277@O3' out /home/u22607007/md/out/WT__S1/hbd_S251_T23.dat
+distance hb_R220_P22 :199@NH2 :276@OP1 out /home/u22607007/md/out/WT__S1/hbd_R220_P22.dat
+run
+quit

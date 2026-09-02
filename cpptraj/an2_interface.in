@@ -1,0 +1,9 @@
+parm /home/u22607007/md/topol/WT__S1/vWT__S1.parm7
+trajin /home/u22607007/md/out/WT__S1/prod.nc 1 1500 5
+nativecontacts :1-254 :255-278 byresidue distance 4.5 resout /home/u22607007/md/out/WT__S1/nat_res.dat out /home/u22607007/md/out/WT__S1/nat_series.dat
+hbond HP :1-254 :255-278 dist 3.5 angle 120 series out /home/u22607007/md/out/WT__S1/hb_hp_series.dat avgout /home/u22607007/md/out/WT__S1/hb_hp_avg.dat
+hbond HD :255-278 :1-254 dist 3.5 angle 120 series out /home/u22607007/md/out/WT__S1/hb_hd_series.dat avgout /home/u22607007/md/out/WT__S1/hb_hd_avg.dat
+rms POCK (:71,75,102)|@MN first out /home/u22607007/md/out/WT__S1/pock_rmsd.dat
+distance DNA_EE :255@P :278@O3' out /home/u22607007/md/out/WT__S1/dna_ee.dat
+run
+quit

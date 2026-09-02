@@ -1,0 +1,6 @@
+parm /home/u22607007/md/topol/WT__S1/vWT__S1.parm7
+trajin /home/u22607007/md/out/WT__S1/prod.nc 1 1500 5
+nativecontacts :1-254 :255-278 byresidue distance 4.5 resout /home/u22607007/md/out/WT__S1/nat_res.dat out /home/u22607007/md/out/WT__S1/nat_series.dat
+hbond HBALL :1-254,:255-278 dist 3.5 angle 120 series out /home/u22607007/md/out/WT__S1/hb_all_series.dat avgout /home/u22607007/md/out/WT__S1/hb_all_avg.dat
+run
+quit
