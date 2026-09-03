@@ -82,6 +82,42 @@ plot1 (fig01-08) 已通用化：`MDEASY_RES` env 覆盖数据目录 + MSYS 路�
 - Microsoft YaHei 缺 `⟨⟩` 字形 → 用 `<>`
 - Windows Git Bash 跑 python：脚本已内置 MSYS 路径归一化
 - 出图需要 numpy/scipy/matplotlib（无 GPU 需求）
+- **【fig09 必踩】Amber mdout 尾部有 2 段伪数据**（2026-09-03 修复）：production 结束后 mdout 会重复写
+  2 段 `NSTEP = <final> TIME(PS) = ...` 块，分别是 `A V E R A G E S   O V E R`（全程均值）和
+  `R M S   F L U C T U A T I O N S`（均方根涨落）。这两段的 TEMP/Etot/EKtot/EPtot/Density
+  **字段名与生产段完全相同但物理含义不同**（RMS 段 TEMP=1.10 K、Etot=286 kcal/mol、
+  Density=0.001 g/cm³ 是涨落幅度，不是瞬时值）。若不过滤，fig09 六个面板末端会出现
+  虚假塌陷（300 K→1 K、-2e5→286、1.02→0.001）。
+  **修复**：`parse_prodout` 末尾只保留 NSTEP 严格递增的记录（生产段 NSTEP 必递增，
+  AVERAGES/RMS 段 NSTEP 恒等于末帧值）。修复后日志会打印
+  `[fix] dropped 2 non-production tail block(s) ... -> 1500 clean frames`。
+  判别口诀：**Pressure 面板没塌、其它 5 个面板同时塌 ⇒ 一定是解析 bug，不是 MD 崩了**。
+
+## 单文件分享版（Step 6b：30 图 → 1 个 HTML）
+
+`figures_pretty/index.html` 依赖同目录 30 个 PNG，**分享时必须打包文件夹**。需要「一个文件发给别人」时跑：
+
+```bash
+python scripts/make_standalone_gallery.py --dir results/<SYSTEM>/figures_pretty
+# 产物: results/<SYSTEM>/<SYSTEM>_figures_standalone.html（约 19 MB，30 张图全内嵌）
+```
+
+**双层内嵌设计**（关键，别改成单层）：
+- 网格缩略图 = 轻量 JPEG（默认宽 800 px / q82，每张 ~60 KB）→ 页面秒开，不等 19 MB
+- 点击卡片 = 灯箱加载 **原图无损 PNG**（内嵌在 `window.__FULL__` JS 数组）→ 出版级放大
+
+**自带交互**：实时文字筛选（图号/标题/关键词）· 点击放大 · 键盘 ←/→ 翻页 · Esc 关闭 · 单图下载原图 · 展开/收起缩略图。
+
+**瘦身选项**（微信/邮件发不出去时用，有损）：
+```bash
+python scripts/make_standalone_gallery.py --full jpeg --full-quality 92   # 约 7 MB
+```
+
+**踩坑**（已写进脚本，改脚本时别踩回去）：
+- 卡片 `<a>` → `<div>` 后，`<main>` 内所有 `</a>` 都是卡片闭合标签，必须全换成 `</div>`。
+  只替换 `</a></div>` 会漏掉 21 张（每组只有最后一张卡片是这个 pattern）→ DOM 嵌套错乱。
+- RGBA PNG 转 JPEG 前必须白底合成，否则透明区变黑。
+- 校验：`html.parser` 跑一遍标签平衡（未闭合 0 / 错误 0）+ 确认除 GitHub 文字链外无外链资源。
 
 ## 调用方式（其他项目复用）
 1. 复制整个仓库或子集（md_easy.sh + pipeline/ + templates/ + cpptraj/ + tools/ + scripts/ + ff/ + config/）
@@ -89,6 +125,7 @@ plot1 (fig01-08) 已通用化：`MDEASY_RES` env 覆盖数据目录 + MSYS 路�
 3. 若要 fig22：在 project.env 填 HBOND_PAIRS（PprI 模板 6 键格式见 config 注释）
 4. 若要 fig28：放 bfactor_prot.dat 到 results/<SYSTEM>/（可选）
 5. 收图：results/<SYSTEM>/figures_pretty/ + index.html
+6. 要分享：跑 `make_standalone_gallery.py` 出单文件 HTML
 
 ## GitHub 仓库
 - 公开仓库 [`Elephenman/md-amber-figure-pipeline`](https://github.com/Elephenman/md-amber-figure-pipeline)

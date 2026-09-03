@@ -29,6 +29,19 @@ print(f"[fig09-22] loaded base figs, {NFR} frames, {T[-1]:.0f} ns")
 # ================================================================ FIG 09 能量收敛
 print("[fig09] energy convergence")
 def parse_prodout(path):
+    """解析 Amber pmemd mdout 的能量块 (每个 ntpr 打印一段)。
+
+    !! 关键修复 2026-09-03 !!
+    Amber 在 production 结束后会额外重复写 2 段 "NSTEP = <final> TIME(PS) = ..."：
+      - "A V E R A G E S   O V E R" 段  (全程均值)
+      - "R M S   F L U C T U A T I O N S" 段 (均方根涨落)
+    这两段的 TEMP / Etot / EKtot / EPtot / Density 字段名与生产段完全相同，
+    但物理含义不同 —— RMS 段的 TEMP=1.10 K、Etot=286 kcal/mol、
+    Density=0.001 g/cm3 是"涨落幅度"而非瞬时值。
+    若不过滤，fig09 六个面板末端会出现虚假塌陷 (300 K->1 K、-2e5->286 等)。
+    防御策略：生产段 NSTEP 必严格递增；AVERAGES / RMS 段的 NSTEP 恒等于
+    最后一帧的值，故只需保留 NSTEP 严格递增的记录即可干净剔除。
+    """
     txt = open(path, encoding="utf-8", errors="ignore").read().splitlines()
     nstep_pos = []
     for i, ln in enumerate(txt):
@@ -37,6 +50,8 @@ def parse_prodout(path):
     recs = []
     for idx, i in enumerate(nstep_pos):
         m = re.search(r"NSTEP\s*=\s*(\d+)\s+TIME\(PS\)\s*=\s*([\d.]+)\s+TEMP\(K\)\s*=\s*([\d.]+)\s+PRESS\s*=\s*([-\d.]+)", txt[i])
+        if not m:
+            continue
         r = dict(nstep=int(m.group(1)), t=float(m.group(2)),
                  temp=float(m.group(3)), press=float(m.group(4)))
         jend = nstep_pos[idx + 1] if idx + 1 < len(nstep_pos) else min(i + 16, len(txt))
@@ -52,7 +67,16 @@ def parse_prodout(path):
                 r["dens"] = float(d.group(1))
         if "etot" in r and "vol" in r and "dens" in r:
             recs.append(r)
-    return recs
+    # ---- 关键修复：剔除 AVERAGES / RMS fluctuation 的重复末帧 ----
+    keep = [recs[0]] if recs else []
+    for r in recs[1:]:
+        if r["nstep"] > keep[-1]["nstep"]:
+            keep.append(r)
+    n_drop = len(recs) - len(keep)
+    if n_drop:
+        print(f"   [fix] dropped {n_drop} non-production tail block(s) "
+              f"(Amber AVERAGES / RMS fluctuation) -> {len(keep)} clean frames")
+    return keep
 
 ER = parse_prodout(os.path.join(RES, "prod.out"))
 print(f"   {len(ER)} energy blocks; t {ER[0]['t']:.0f}-{ER[-1]['t']:.0f} ps")
